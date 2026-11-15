@@ -92,3 +92,39 @@ The authentication system is built around secure, cookie-based token handling wi
 - **Role-Based Access Control**: `authenticate` attaches `req.user`, and `authorize(...roles)` gates endpoints by role.
 - **Input Validation**: Strict input schemas with Zod enforce strong passwords, email formats, and role enums.
 - **Centralized Errors**: Consistent error responses `{ success: false, message, errors? }`.
+
+
+## Event Management API (`/api/events`)
+
+All endpoints under `/api/events` are protected with `authenticate` and `authorize('organizer')`.
+
+### Endpoints
+
+1. `POST /api/events`:
+   - Creates a new event.
+   - `organizerId` is automatically extracted from `req.user.id`.
+   - Returns status `201` with `{ success: true, data: { event } }`.
+2. `PUT /api/events/:id`:
+   - Full update requiring all fields: `title`, `description`, `startAt`, `timezone`, `location`, `capacity`, and `status`.
+   - Validates ownership (403 if belonging to another organizer, 404 if not found).
+   - Enforces status rule (cannot transition out of `canceled`).
+   - Returns status `200` with `{ success: true, data: { event } }`.
+3. `PATCH /api/events/:id`:
+   - Partial update (any non-empty subset of allowed fields).
+   - Validates ownership (403 if belonging to another organizer, 404 if not found).
+   - Enforces status rule (cannot transition out of `canceled`).
+   - Returns status `200` with `{ success: true, data: { event } }`.
+4. `DELETE /api/events/:id`:
+   - Deletes the event.
+   - Validates ownership (403 if belonging to another organizer, 404 if not found).
+   - Returns status `200` with `{ success: true, data: { message: 'Event deleted successfully' } }`.
+
+### Validation Rules
+- `title`: string, min 1, max 255
+- `description`: string, min 1
+- `startAt`: valid future date (ISO 8601)
+- `timezone`: valid IANA timezone name (validated using standard `Intl.DateTimeFormat`)
+- `location`: string, min 1, max 255
+- `capacity`: positive integer (`> 0`)
+- `status`: enum `draft | published | canceled` (defaults to `draft` on create)
+- Unknown fields (such as `id`, `organizerId`, `createdAt`) are rejected via `.strict()`.

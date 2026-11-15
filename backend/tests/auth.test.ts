@@ -1,11 +1,11 @@
-import request from 'supertest';
+import request, { Response } from 'supertest';
 import app from '../src/app';
 import { prisma } from '../src/lib/prisma';
 import { authenticate, authorize } from '../src/middlewares/auth.middleware';
 import apiRouter from '../src/routes';
 import { hashToken } from '../src/utils/hash';
 
-const getCookieValue = (res: request.Response, cookieName: string): string | undefined => {
+const getCookieValue = (res: Response, cookieName: string): string | undefined => {
   const setCookie = res.headers['set-cookie'];
   if (!setCookie) return undefined;
   const cookieHeaders = Array.isArray(setCookie) ? setCookie : [setCookie];
@@ -27,6 +27,7 @@ describe('Auth Integration Tests', () => {
   };
 
   beforeEach(async () => {
+    await prisma.event.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
   });
