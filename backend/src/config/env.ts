@@ -2,14 +2,14 @@ import 'dotenv/config';
 import { z } from 'zod';
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-  PORT: z.coerce.number().int().positive(),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().positive().default(5000),
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
-  JWT_ACCESS_EXPIRES_IN: z.string().min(1),
-  JWT_REFRESH_EXPIRES_IN: z.string().min(1),
-  CORS_ORIGIN: z.string().url(),
+  ACCESS_TOKEN_EXPIRES_IN: z.string().default(process.env.JWT_ACCESS_EXPIRES_IN || '15m'),
+  REFRESH_TOKEN_EXPIRES_IN: z.string().default(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
+  CLIENT_URL: z.string().default(process.env.CORS_ORIGIN || 'http://localhost:3000'),
 });
 
 const result = envSchema.safeParse(process.env);
