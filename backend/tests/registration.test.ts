@@ -57,16 +57,16 @@ describe('Event Registration Integration Tests', () => {
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
 
-    const resOrg = await request(app).post('/api/auth/signup').send(organizerUser);
+    const resOrg = await request(app).post('/api/v1/auth/signup').send(organizerUser);
     tokenOrganizer = getCookieValue(resOrg, 'accessToken')!;
 
-    const resOrgOther = await request(app).post('/api/auth/signup').send(organizerOther);
+    const resOrgOther = await request(app).post('/api/v1/auth/signup').send(organizerOther);
     tokenOrganizerOther = getCookieValue(resOrgOther, 'accessToken')!;
 
-    const resAttA = await request(app).post('/api/auth/signup').send(attendeeA);
+    const resAttA = await request(app).post('/api/v1/auth/signup').send(attendeeA);
     tokenAttendeeA = getCookieValue(resAttA, 'accessToken')!;
 
-    const resAttB = await request(app).post('/api/auth/signup').send(attendeeB);
+    const resAttB = await request(app).post('/api/v1/auth/signup').send(attendeeB);
     tokenAttendeeB = getCookieValue(resAttB, 'accessToken')!;
   });
 
@@ -83,7 +83,7 @@ describe('Event Registration Integration Tests', () => {
     }> = {}
   ) => {
     const res = await request(app)
-      .post('/api/events')
+      .post('/api/v1/events')
       .set('Cookie', [`accessToken=${token}`])
       .send({
         title: 'Developer Workshop',
@@ -103,7 +103,7 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer);
 
       const res1 = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res1.status).toBe(201);
@@ -111,7 +111,7 @@ describe('Event Registration Integration Tests', () => {
       expect(res1.body.data.registration.status).toBe('active');
 
       const res2 = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res2.status).toBe(409);
@@ -124,21 +124,21 @@ describe('Event Registration Integration Tests', () => {
 
       // Amy registers -> succeeds
       const resA = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
       expect(resA.status).toBe(201);
       const regAId = resA.body.data.registration.id;
 
       // Ben registers -> fails (Event is full)
       const resB = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeB}`]);
       expect(resB.status).toBe(409);
       expect(resB.body.message).toMatch(/full/i);
 
       // Amy cancels her registration
       const cancelRes = await request(app)
-        .patch(`/api/registrations/${regAId}/cancel`)
+        .patch(`/api/v1/registrations/${regAId}/cancel`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
       expect(cancelRes.status).toBe(200);
       expect(cancelRes.body.data.registration.status).toBe('canceled');
@@ -146,7 +146,7 @@ describe('Event Registration Integration Tests', () => {
 
       // Ben registers again -> now succeeds!
       const resB2 = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeB}`]);
       expect(resB2.status).toBe(201);
       expect(resB2.body.data.registration.status).toBe('active');
@@ -160,7 +160,7 @@ describe('Event Registration Integration Tests', () => {
       // Create 10 attendee tokens
       const attendeeTokens: string[] = [];
       for (let i = 1; i <= 10; i++) {
-        const res = await request(app).post('/api/auth/signup').send({
+        const res = await request(app).post('/api/v1/auth/signup').send({
           name: `Concurrent User ${i}`,
           email: `concurrent${i}@evently.test`,
           password: 'Password123!',
@@ -173,7 +173,7 @@ describe('Event Registration Integration Tests', () => {
       const results = await Promise.all(
         attendeeTokens.map((token) =>
           request(app)
-            .post(`/api/events/${event.id}/registrations`)
+            .post(`/api/v1/events/${event.id}/registrations`)
             .set('Cookie', [`accessToken=${token}`])
         )
       );
@@ -197,7 +197,7 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer, { status: 'draft' });
 
       const res = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res.status).toBe(409);
@@ -208,7 +208,7 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer, { status: 'canceled' });
 
       const res = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res.status).toBe(409);
@@ -220,11 +220,11 @@ describe('Event Registration Integration Tests', () => {
 
       // Soft delete event
       await request(app)
-        .delete(`/api/events/${event.id}`)
+        .delete(`/api/v1/events/${event.id}`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`]);
 
       const res = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res.status).toBe(404);
@@ -247,7 +247,7 @@ describe('Event Registration Integration Tests', () => {
       });
 
       const res = await request(app)
-        .post(`/api/events/${pastEvent.id}/registrations`)
+        .post(`/api/v1/events/${pastEvent.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res.status).toBe(409);
@@ -260,12 +260,12 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer);
 
       const regRes = await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
       const regId = regRes.body.data.registration.id;
 
       const cancelRes = await request(app)
-        .patch(`/api/registrations/${regId}/cancel`)
+        .patch(`/api/v1/registrations/${regId}/cancel`)
         .set('Cookie', [`accessToken=${tokenAttendeeB}`]);
 
       expect(cancelRes.status).toBe(403);
@@ -276,11 +276,11 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer);
 
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       const res = await request(app)
-        .get(`/api/events/${event.id}/registrations`)
+        .get(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenOrganizerOther}`]);
 
       expect(res.status).toBe(403);
@@ -291,11 +291,11 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer);
 
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       const res = await request(app)
-        .get(`/api/events/${event.id}/registrations`)
+        .get(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`]);
 
       expect(res.status).toBe(200);
@@ -311,11 +311,11 @@ describe('Event Registration Integration Tests', () => {
       const event = await createEvent(tokenOrganizer);
 
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       const res = await request(app)
-        .get('/api/users/me/registrations')
+        .get('/api/v1/users/me/registrations')
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       expect(res.status).toBe(200);
@@ -336,15 +336,15 @@ describe('Event Registration Integration Tests', () => {
 
       // Register Amy and Ben
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeB}`]);
 
       // Organizer cancels the event via PATCH
       const patchRes = await request(app)
-        .patch(`/api/events/${event.id}`)
+        .patch(`/api/v1/events/${event.id}`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`])
         .send({ status: 'canceled' });
 
@@ -370,11 +370,11 @@ describe('Event Registration Integration Tests', () => {
       });
 
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
 
       const deleteRes = await request(app)
-        .delete(`/api/events/${event.id}`)
+        .delete(`/api/v1/events/${event.id}`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`]);
 
       expect(deleteRes.status).toBe(200);
@@ -401,15 +401,15 @@ describe('Event Registration Integration Tests', () => {
 
       // Register Amy and Ben (2 active)
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
       await request(app)
-        .post(`/api/events/${event.id}/registrations`)
+        .post(`/api/v1/events/${event.id}/registrations`)
         .set('Cookie', [`accessToken=${tokenAttendeeB}`]);
 
       // Attempt reducing capacity to 1 (below 2 active) -> fails with 400
       const patchFail = await request(app)
-        .patch(`/api/events/${event.id}`)
+        .patch(`/api/v1/events/${event.id}`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`])
         .send({ capacity: 1 });
 
@@ -418,7 +418,7 @@ describe('Event Registration Integration Tests', () => {
 
       // Attempt setting capacity to 2 (equal to active) -> succeeds
       const patchSuccess = await request(app)
-        .patch(`/api/events/${event.id}`)
+        .patch(`/api/v1/events/${event.id}`)
         .set('Cookie', [`accessToken=${tokenOrganizer}`])
         .send({ capacity: 2 });
 

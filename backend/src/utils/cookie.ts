@@ -18,7 +18,7 @@ export const getRefreshCookieOptions = (): CookieOptions => ({
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax',
-  path: '/api/auth',
+  path: '/api/v1/auth',
   maxAge: REFRESH_TOKEN_EXPIRY_MS,
 });
 
@@ -38,6 +38,6 @@ export const clearAuthCookies = (res: Response): void => {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
-    path: '/api/auth',
+    path: '/api/v1/auth',
   });
 };

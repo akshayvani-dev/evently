@@ -33,9 +33,9 @@ describe('Auth Integration Tests', () => {
     await prisma.user.deleteMany();
   });
 
-  describe('POST /api/auth/signup', () => {
+  describe('POST /api/v1/auth/signup', () => {
     it('should create a user, set cookies, and return sanitized user without tokens in body', async () => {
-      const res = await request(app).post('/api/auth/signup').send(testUser);
+      const res = await request(app).post('/api/v1/auth/signup').send(testUser);
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
@@ -65,9 +65,9 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should return 409 conflict when signing up with an already registered email', async () => {
-      await request(app).post('/api/auth/signup').send(testUser);
+      await request(app).post('/api/v1/auth/signup').send(testUser);
 
-      const res = await request(app).post('/api/auth/signup').send(testUser);
+      const res = await request(app).post('/api/v1/auth/signup').send(testUser);
 
       expect(res.status).toBe(409);
       expect(res.body.success).toBe(false);
@@ -75,7 +75,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should return 400 validation error on weak password or invalid email', async () => {
-      const res = await request(app).post('/api/auth/signup').send({
+      const res = await request(app).post('/api/v1/auth/signup').send({
         name: 'Bad User',
         email: 'invalid-email',
         password: '123',
@@ -88,13 +88,13 @@ describe('Auth Integration Tests', () => {
     });
   });
 
-  describe('POST /api/auth/signin', () => {
+  describe('POST /api/v1/auth/signin', () => {
     beforeEach(async () => {
-      await request(app).post('/api/auth/signup').send(testUser);
+      await request(app).post('/api/v1/auth/signup').send(testUser);
     });
 
     it('should sign in successfully, set cookies, and return no tokens in body', async () => {
-      const res = await request(app).post('/api/auth/signin').send({
+      const res = await request(app).post('/api/v1/auth/signin').send({
         email: testUser.email,
         password: testUser.password,
       });
@@ -113,7 +113,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should return 401 with generic message on wrong password', async () => {
-      const res = await request(app).post('/api/auth/signin').send({
+      const res = await request(app).post('/api/v1/auth/signin').send({
         email: testUser.email,
         password: 'WrongPassword999!',
       });
@@ -124,7 +124,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should return 401 with generic message on nonexistent email', async () => {
-      const res = await request(app).post('/api/auth/signin').send({
+      const res = await request(app).post('/api/v1/auth/signin').send({
         email: 'nobody@example.com',
         password: 'Password123!',
       });
@@ -135,13 +135,13 @@ describe('Auth Integration Tests', () => {
     });
   });
 
-  describe('GET /api/auth/me', () => {
+  describe('GET /api/v1/auth/me', () => {
     it('should return user info when valid access token cookie is provided', async () => {
-      const signupRes = await request(app).post('/api/auth/signup').send(testUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const accessToken = getCookieValue(signupRes, 'accessToken');
 
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/api/v1/auth/me')
         .set('Cookie', [`accessToken=${accessToken}`]);
 
       expect(res.status).toBe(200);
@@ -152,7 +152,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should return 401 when access token cookie is missing', async () => {
-      const res = await request(app).get('/api/auth/me');
+      const res = await request(app).get('/api/v1/auth/me');
 
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
@@ -161,7 +161,7 @@ describe('Auth Integration Tests', () => {
 
     it('should return 401 when access token is invalid', async () => {
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/api/v1/auth/me')
         .set('Cookie', ['accessToken=invalid.token.here']);
 
       expect(res.status).toBe(401);
@@ -170,14 +170,14 @@ describe('Auth Integration Tests', () => {
     });
   });
 
-  describe('POST /api/auth/refresh (Rotation & Reuse Detection)', () => {
+  describe('POST /api/v1/auth/refresh (Rotation & Reuse Detection)', () => {
     it('should rotate tokens and return new cookies', async () => {
-      const signupRes = await request(app).post('/api/auth/signup').send(testUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const initialRefreshToken = getCookieValue(signupRes, 'refreshToken')!;
 
       // Call refresh
       const refreshRes = await request(app)
-        .post('/api/auth/refresh')
+        .post('/api/v1/auth/refresh')
         .set('Cookie', [`refreshToken=${initialRefreshToken}`]);
 
       expect(refreshRes.status).toBe(200);
@@ -207,12 +207,12 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should detect reuse of a revoked refresh token, revoke all tokens, and return 401', async () => {
-      const signupRes = await request(app).post('/api/auth/signup').send(testUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const initialRefreshToken = getCookieValue(signupRes, 'refreshToken')!;
 
       // First refresh succeeds and rotates the token
       const firstRefreshRes = await request(app)
-        .post('/api/auth/refresh')
+        .post('/api/v1/auth/refresh')
         .set('Cookie', [`refreshToken=${initialRefreshToken}`]);
 
       expect(firstRefreshRes.status).toBe(200);
@@ -220,7 +220,7 @@ describe('Auth Integration Tests', () => {
 
       // Attempt reuse: present the old initialRefreshToken again
       const reuseRes = await request(app)
-        .post('/api/auth/refresh')
+        .post('/api/v1/auth/refresh')
         .set('Cookie', [`refreshToken=${initialRefreshToken}`]);
 
       expect(reuseRes.status).toBe(401);
@@ -236,13 +236,13 @@ describe('Auth Integration Tests', () => {
     });
   });
 
-  describe('POST /api/auth/logout', () => {
+  describe('POST /api/v1/auth/logout', () => {
     it('should clear cookies and revoke refresh token in database', async () => {
-      const signupRes = await request(app).post('/api/auth/signup').send(testUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const refreshToken = getCookieValue(signupRes, 'refreshToken')!;
 
       const logoutRes = await request(app)
-        .post('/api/auth/logout')
+        .post('/api/v1/auth/logout')
         .set('Cookie', [`refreshToken=${refreshToken}`]);
 
       expect(logoutRes.status).toBe(200);
@@ -271,7 +271,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should succeed with 200 even if cookies are missing', async () => {
-      const logoutRes = await request(app).post('/api/auth/logout');
+      const logoutRes = await request(app).post('/api/v1/auth/logout');
       expect(logoutRes.status).toBe(200);
       expect(logoutRes.body.success).toBe(true);
     });
@@ -290,11 +290,11 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should allow organizer to access organizer-only route', async () => {
-      const signupRes = await request(app).post('/api/auth/signup').send(testUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const accessToken = getCookieValue(signupRes, 'accessToken');
 
       const res = await request(app)
-        .get('/api/test-organizer-only')
+        .get('/api/v1/test-organizer-only')
         .set('Cookie', [`accessToken=${accessToken}`]);
 
       expect(res.status).toBe(200);
@@ -308,11 +308,11 @@ describe('Auth Integration Tests', () => {
         password: 'Password123!',
         role: 'attendee' as const,
       };
-      const signupRes = await request(app).post('/api/auth/signup').send(attendeeUser);
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(attendeeUser);
       const accessToken = getCookieValue(signupRes, 'accessToken');
 
       const res = await request(app)
-        .get('/api/test-organizer-only')
+        .get('/api/v1/test-organizer-only')
         .set('Cookie', [`accessToken=${accessToken}`]);
 
       expect(res.status).toBe(403);

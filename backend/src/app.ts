@@ -24,7 +24,7 @@ if (env.NODE_ENV !== 'test') {
 app.use(express.json());
 app.use(cookieParser());
 
-app.use('/api', apiRouter);
+app.use('/api/v1', apiRouter);
 
 // Centralized error handling middleware
 app.use(errorHandler);

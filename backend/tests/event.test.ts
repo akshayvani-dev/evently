@@ -60,28 +60,28 @@ describe('Event CRUD Integration Tests', () => {
     await prisma.user.deleteMany();
 
     // Sign up Alice
-    const resA = await request(app).post('/api/auth/signup').send(organizerA);
+    const resA = await request(app).post('/api/v1/auth/signup').send(organizerA);
     tokenAlice = getCookieValue(resA, 'accessToken')!;
 
     // Sign up Bob
-    const resB = await request(app).post('/api/auth/signup').send(organizerB);
+    const resB = await request(app).post('/api/v1/auth/signup').send(organizerB);
     tokenBob = getCookieValue(resB, 'accessToken')!;
 
     // Sign up Charlie (Attendee)
-    const resC = await request(app).post('/api/auth/signup').send(attendee);
+    const resC = await request(app).post('/api/v1/auth/signup').send(attendee);
     tokenCharlie = getCookieValue(resC, 'accessToken')!;
   });
 
   describe('Authentication & Authorization', () => {
     it('should return 401 when unauthenticated', async () => {
-      const res = await request(app).post('/api/events').send(sampleEventData);
+      const res = await request(app).post('/api/v1/events').send(sampleEventData);
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
     });
 
     it('should return 403 when an attendee attempts to access organizer endpoints', async () => {
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenCharlie}`])
         .send(sampleEventData);
 
@@ -91,10 +91,10 @@ describe('Event CRUD Integration Tests', () => {
     });
   });
 
-  describe('POST /api/events (Create Event)', () => {
+  describe('POST /api/v1/events (Create Event)', () => {
     it('should allow organizer to create an event with valid data', async () => {
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(sampleEventData);
 
@@ -111,7 +111,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('should reject creation when capacity <= 0', async () => {
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
@@ -126,7 +126,7 @@ describe('Event CRUD Integration Tests', () => {
     it('should reject creation when startAt is in the past', async () => {
       const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
@@ -140,7 +140,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('should reject creation with an invalid IANA timezone', async () => {
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
@@ -154,7 +154,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('should reject unknown fields (e.g., id, organizerId, createdAt)', async () => {
       const res = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
@@ -174,7 +174,7 @@ describe('Event CRUD Integration Tests', () => {
 
     beforeEach(async () => {
       const createRes = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(sampleEventData);
       eventId = createRes.body.data.event.id;
@@ -192,7 +192,7 @@ describe('Event CRUD Integration Tests', () => {
       };
 
       const res = await request(app)
-        .put(`/api/events/${eventId}`)
+        .put(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenBob}`])
         .send(updateData);
 
@@ -203,7 +203,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('should return 403 when organizer B attempts to PATCH update organizer A\'s event', async () => {
       const res = await request(app)
-        .patch(`/api/events/${eventId}`)
+        .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenBob}`])
         .send({ title: 'Hacked Title' });
 
@@ -214,7 +214,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('should return 403 when organizer B attempts to DELETE organizer A\'s event', async () => {
       const res = await request(app)
-        .delete(`/api/events/${eventId}`)
+        .delete(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenBob}`]);
 
       expect(res.status).toBe(403);
@@ -229,7 +229,7 @@ describe('Event CRUD Integration Tests', () => {
     it('should return 404 when updating or deleting a nonexistent event', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
       const patchRes = await request(app)
-        .patch(`/api/events/${fakeId}`)
+        .patch(`/api/v1/events/${fakeId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({ title: 'Nonexistent' });
 
@@ -237,7 +237,7 @@ describe('Event CRUD Integration Tests', () => {
       expect(patchRes.body.success).toBe(false);
 
       const deleteRes = await request(app)
-        .delete(`/api/events/${fakeId}`)
+        .delete(`/api/v1/events/${fakeId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`]);
 
       expect(deleteRes.status).toBe(404);
@@ -250,7 +250,7 @@ describe('Event CRUD Integration Tests', () => {
 
     beforeEach(async () => {
       const createRes = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(sampleEventData);
       eventId = createRes.body.data.event.id;
@@ -269,7 +269,7 @@ describe('Event CRUD Integration Tests', () => {
       };
 
       const res = await request(app)
-        .put(`/api/events/${eventId}`)
+        .put(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(fullUpdate);
 
@@ -288,7 +288,7 @@ describe('Event CRUD Integration Tests', () => {
       };
 
       const res = await request(app)
-        .put(`/api/events/${eventId}`)
+        .put(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(incompleteUpdate);
 
@@ -299,7 +299,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('PATCH allows partial updates without affecting unmodified fields', async () => {
       const res = await request(app)
-        .patch(`/api/events/${eventId}`)
+        .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           title: 'Patched Title Only',
@@ -318,7 +318,7 @@ describe('Event CRUD Integration Tests', () => {
 
     it('PATCH fails when an empty body is sent', async () => {
       const res = await request(app)
-        .patch(`/api/events/${eventId}`)
+        .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({});
 
@@ -332,14 +332,14 @@ describe('Event CRUD Integration Tests', () => {
     it('status cannot move out of canceled once an event is canceled', async () => {
       // Create and cancel event
       const createRes = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(sampleEventData);
       const eventId = createRes.body.data.event.id;
 
       // Cancel the event via PATCH
       const cancelRes = await request(app)
-        .patch(`/api/events/${eventId}`)
+        .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({ status: 'canceled' });
       expect(cancelRes.status).toBe(200);
@@ -347,7 +347,7 @@ describe('Event CRUD Integration Tests', () => {
 
       // Attempt to move back to published via PATCH
       const unCancelPatchRes = await request(app)
-        .patch(`/api/events/${eventId}`)
+        .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({ status: 'published' });
       expect(unCancelPatchRes.status).toBe(400);
@@ -356,7 +356,7 @@ describe('Event CRUD Integration Tests', () => {
 
       // Attempt to move back to draft via PUT
       const unCancelPutRes = await request(app)
-        .put(`/api/events/${eventId}`)
+        .put(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
@@ -368,16 +368,16 @@ describe('Event CRUD Integration Tests', () => {
     });
   });
 
-  describe('DELETE /api/events/:id', () => {
+  describe('DELETE /api/v1/events/:id', () => {
     it('should allow organizer to delete their own event', async () => {
       const createRes = await request(app)
-        .post('/api/events')
+        .post('/api/v1/events')
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send(sampleEventData);
       const eventId = createRes.body.data.event.id;
 
       const deleteRes = await request(app)
-        .delete(`/api/events/${eventId}`)
+        .delete(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`]);
 
       expect(deleteRes.status).toBe(200);
