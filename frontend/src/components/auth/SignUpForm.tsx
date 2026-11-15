@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, Check, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { signUpSchema, type SignUpValues } from '../../lib/validation/auth';
 import { cn } from '../../lib/utils';
+import { authApi, getApiErrorMessage } from '../../api/authapi';
+import { useAppDispatch } from '../../store';
+import { setUser } from '../../store/slices/authSlice';
 import { Button } from '../ui/Button';
 import { FormField } from './FormField';
 import { PasswordInput } from './PasswordInput';
@@ -19,19 +22,19 @@ export function SignUpForm() {
     name: string;
     role: 'attendee' | 'organizer';
   } | null>(null);
-  const [serverError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
 
   const timerRef = useRef<number | null>(null);
   const roleFirstButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const prefersReducedMotion = useReducedMotion();
 
   const {
     register,
     control,
-    watch,
     handleSubmit,
     formState: { errors },
   } = useForm<SignUpValues>({
@@ -55,20 +58,37 @@ export function SignUpForm() {
     };
   }, []);
 
-  const passwordValue = watch('password') ?? '';
-  const passwordChecks = [
-    { label: '8+ characters', met: passwordValue.length >= 8 },
-    { label: 'One letter', met: /[A-Za-z]/.test(passwordValue) },
-    { label: 'One number', met: /[0-9]/.test(passwordValue) },
-  ];
-
-  const onValid = (values: SignUpValues) => {
+  const onValid = async (values: SignUpValues) => {
     setIsSubmitting(true);
-    timerRef.current = window.setTimeout(() => {
+    setServerError(null);
+    try {
+      const response = await authApi.signup({
+        name: values.name,
+        email: values.email,
+        password: values.password,
+        role: values.role,
+      });
+
+      if (response.success && response.data?.user) {
+        const user = response.data.user;
+        dispatch(setUser(user));
+        localStorage.setItem('isLoggedIn', 'true');
+        setCreatedAccount({ name: values.name, role: values.role });
+        setIsSuccess(true);
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      if (!prefersReducedMotion) {
+        setIsShaking(true);
+      }
+      const message = getApiErrorMessage(
+        err,
+        'Failed to create account. Please try again.'
+      );
+      setServerError(message);
+    } finally {
       setIsSubmitting(false);
-      setCreatedAccount({ name: values.name, role: values.role });
-      setIsSuccess(true);
-    }, 1000);
+    }
   };
 
   const onInvalid = (fieldErrors: FieldErrors<SignUpValues>) => {
@@ -107,67 +127,73 @@ export function SignUpForm() {
         <Button
           variant="gradient"
           size="lg"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="w-full"
         >
-          Explore events
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          Go to Dashboard
         </Button>
       </motion.div>
     );
   }
 
+  const shakeAnimation = isShaking
+    ? {
+      x: [0, -8, 8, -6, 6, -3, 3, 0],
+      transition: { duration: 0.4 },
+    }
+    : { x: 0 };
+
   return (
     <motion.form
-      initial={false}
-      animate={
-        isShaking && !prefersReducedMotion
-          ? { x: [0, -6, 6, -4, 4, 0] }
-          : { x: 0 }
-      }
-      transition={{ duration: 0.32 }}
-      onAnimationComplete={() => setIsShaking(false)}
-      onSubmit={handleSubmit(onValid, onInvalid)}
       noValidate
+      onSubmit={handleSubmit(onValid, onInvalid)}
+      animate={prefersReducedMotion ? undefined : shakeAnimation}
+      onAnimationComplete={() => setIsShaking(false)}
       className="space-y-4"
     >
       <AuthErrorBanner message={serverError} />
 
-      <FormField id="signup-name" label="Full name" error={errors.name?.message}>
+      <FormField
+        id="signup-name"
+        label="Full name"
+        error={errors.name?.message}
+      >
         <input
           id="signup-name"
           type="text"
           autoComplete="name"
-          placeholder="Alex Rivera"
-          aria-invalid={errors.name ? 'true' : 'false'}
-          aria-describedby={errors.name ? 'signup-name-error' : undefined}
-          className={cn(
-            'h-11 w-full rounded-xl border bg-background/70 px-3.5 text-sm text-text placeholder:text-text-muted/70 transition-colors',
-            'focus:outline-none focus-visible:ring-2',
-            errors.name
-              ? 'border-[#F0786B] focus:border-[#F0786B] focus-visible:ring-[#F0786B]/40'
-              : 'border-border focus:border-primary focus-visible:ring-primary/50',
-          )}
+          placeholder="Alex Morgan"
+          disabled={isSubmitting}
+          aria-invalid={Boolean(errors.name)}
           {...register('name')}
+          className={cn(
+            'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
+            errors.name
+              ? 'border-[#DE6B6B] focus:border-[#DE6B6B]'
+              : 'border-white/10 hover:border-white/20 focus:border-primary'
+          )}
         />
       </FormField>
 
-      <FormField id="signup-email" label="Email" error={errors.email?.message}>
+      <FormField
+        id="signup-email"
+        label="Email address"
+        error={errors.email?.message}
+      >
         <input
           id="signup-email"
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
-          aria-invalid={errors.email ? 'true' : 'false'}
-          aria-describedby={errors.email ? 'signup-email-error' : undefined}
-          className={cn(
-            'h-11 w-full rounded-xl border bg-background/70 px-3.5 text-sm text-text placeholder:text-text-muted/70 transition-colors',
-            'focus:outline-none focus-visible:ring-2',
-            errors.email
-              ? 'border-[#F0786B] focus:border-[#F0786B] focus-visible:ring-[#F0786B]/40'
-              : 'border-border focus:border-primary focus-visible:ring-primary/50',
-          )}
+          disabled={isSubmitting}
+          aria-invalid={Boolean(errors.email)}
           {...register('email')}
+          className={cn(
+            'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
+            errors.email
+              ? 'border-[#DE6B6B] focus:border-[#DE6B6B]'
+              : 'border-white/10 hover:border-white/20 focus:border-primary'
+          )}
         />
       </FormField>
 
@@ -175,76 +201,56 @@ export function SignUpForm() {
         id="signup-password"
         label="Password"
         error={errors.password?.message}
-        hint={
-          <ul
-            aria-label="Password requirements"
-            className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs"
-          >
-            {passwordChecks.map((check) => (
-              <li
-                key={check.label}
-                className={cn(
-                  'inline-flex items-center gap-1.5 transition-colors',
-                  check.met ? 'text-[#8FD18A]' : 'text-text-muted',
-                )}
-              >
-                <Check
-                  className={cn(
-                    'h-3.5 w-3.5',
-                    check.met ? 'opacity-100' : 'opacity-40',
-                  )}
-                  aria-hidden="true"
-                />
-                <span>{check.label}</span>
-              </li>
-            ))}
-          </ul>
-        }
       >
         <PasswordInput
           id="signup-password"
           autoComplete="new-password"
-          placeholder="Create a strong password"
+          placeholder="At least 8 characters"
+          disabled={isSubmitting}
           hasError={Boolean(errors.password)}
-          aria-describedby={errors.password ? 'signup-password-error' : undefined}
           {...register('password')}
         />
       </FormField>
 
-      <Controller
-        name="role"
-        control={control}
-        render={({ field }) => (
-          <RoleSelector
-            value={field.value}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-            error={errors.role?.message}
-            firstButtonRef={(node) => {
-              roleFirstButtonRef.current = node;
-            }}
-          />
-        )}
-      />
-
-      <div className="pt-2">
-        <Button
-          type="submit"
-          variant="gradient"
-          size="lg"
-          disabled={isSubmitting}
-          className="w-full"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Creating account...
-            </>
-          ) : (
-            'Create account'
+      <FormField
+        id="signup-role"
+        label="How will you use Evently?"
+        error={errors.role?.message}
+      >
+        <Controller
+          name="role"
+          control={control}
+          render={({ field }) => (
+            <RoleSelector
+              value={field.value}
+              onChange={field.onChange}
+              firstButtonRef={(node) => {
+                roleFirstButtonRef.current = node;
+              }}
+            />
           )}
-        </Button>
-      </div>
+        />
+      </FormField>
+
+      <Button
+        type="submit"
+        variant="primary"
+        size="md"
+        className="w-full mt-2"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <span>Creating account...</span>
+          </>
+        ) : (
+          <>
+            <span>Create account</span>
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </>
+        )}
+      </Button>
     </motion.form>
   );
 }

@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useScrolled } from '../../hooks/useScrolled';
 import { cn, smoothScrollTo } from '../../lib/utils';
+import { useAppSelector } from '../../store';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
 
@@ -16,6 +17,7 @@ const NAV_LINKS = [
 export function Navbar() {
   const scrolled = useScrolled(24);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
   const prefersReducedMotion = useReducedMotion();
   const location = useLocation();
   const navigate = useNavigate();
@@ -112,10 +114,10 @@ export function Navbar() {
               size="sm"
               onClick={() => {
                 setMobileOpen(false);
-                navigate('/auth');
+                navigate(isAuthenticated ? '/dashboard' : '/auth');
               }}
             >
-              Get started
+              {isAuthenticated ? (user?.name || 'Dashboard') : 'Get started'}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
@@ -185,10 +187,10 @@ export function Navbar() {
                   className="w-full"
                   onClick={() => {
                     setMobileOpen(false);
-                    navigate('/auth');
+                    navigate(isAuthenticated ? '/dashboard' : '/auth');
                   }}
                 >
-                  Get started
+                  {isAuthenticated ? (user?.name || 'Dashboard') : 'Get started'}
                 </Button>
               </div>
             </Container>

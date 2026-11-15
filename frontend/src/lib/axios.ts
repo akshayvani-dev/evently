@@ -2,7 +2,8 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'ax
 
 // Get base URL from Vite environment variable with a sensible fallback
 export const API_BASE_URL: string =
-  import.meta.env.VITE_API_BASE_URL
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000/api/v1' : '/api/v1');
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

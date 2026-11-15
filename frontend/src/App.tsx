@@ -10,7 +10,11 @@ import { CtaBanner } from './components/sections/CtaBanner';
 import { Footer } from './components/layout/Footer';
 import { EventDetailsPage } from './pages/EventDetailsPage';
 import { AuthPage } from './pages/AuthPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { smoothScrollTo } from './lib/utils';
+import { authApi } from './api/authapi';
+import { useAppDispatch } from './store';
+import { clearUser, setLoading, setUser } from './store/slices/authSlice';
 
 function LandingPage() {
   const { hash } = useLocation();
@@ -45,6 +49,34 @@ function MainLayout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (isLoggedIn) {
+      dispatch(setLoading(true));
+      authApi
+        .getMe()
+        .then((res) => {
+          if (res.success && res.data?.user) {
+            dispatch(setUser(res.data.user));
+          } else {
+            dispatch(clearUser());
+            localStorage.setItem('isLoggedIn', 'false');
+          }
+        })
+        .catch(() => {
+          dispatch(clearUser());
+          localStorage.setItem('isLoggedIn', 'false');
+        })
+        .finally(() => {
+          dispatch(setLoading(false));
+        });
+    } else {
+      dispatch(clearUser());
+    }
+  }, [dispatch]);
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-transparent text-text flex flex-col">
@@ -66,6 +98,7 @@ export default function App() {
             }
           />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
         </Routes>
       </div>
     </MotionConfig>

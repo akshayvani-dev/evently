@@ -6,6 +6,9 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { signInSchema, type SignInValues } from '../../lib/validation/auth';
 import { cn } from '../../lib/utils';
+import { authApi, getApiErrorMessage } from '../../api/authapi';
+import { useAppDispatch } from '../../store';
+import { setUser } from '../../store/slices/authSlice';
 import { Button } from '../ui/Button';
 import { FormField } from './FormField';
 import { PasswordInput } from './PasswordInput';
@@ -15,11 +18,12 @@ export function SignInForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
-  const [serverError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const prefersReducedMotion = useReducedMotion();
 
   const {
@@ -45,13 +49,32 @@ export function SignInForm() {
     };
   }, []);
 
-  const onValid = (values: SignInValues) => {
+  const onValid = async (values: SignInValues) => {
     setIsSubmitting(true);
-    timerRef.current = window.setTimeout(() => {
+    setServerError(null);
+    try {
+      const response = await authApi.signin({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (response.success && response.data?.user) {
+        const user = response.data.user;
+        dispatch(setUser(user));
+        localStorage.setItem('isLoggedIn', 'true');
+        setSubmittedEmail(values.email);
+        setIsSuccess(true);
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      if (!prefersReducedMotion) {
+        setIsShaking(true);
+      }
+      const message = getApiErrorMessage(err, 'Invalid email or password');
+      setServerError(message);
+    } finally {
       setIsSubmitting(false);
-      setSubmittedEmail(values.email);
-      setIsSuccess(true);
-    }, 1000);
+    }
   };
 
   const onInvalid = (_errors: FieldErrors<SignInValues>) => {
@@ -77,51 +100,46 @@ export function SignInForm() {
             Signed in as <span className="font-medium text-text">{submittedEmail}</span>.
           </p>
         </div>
-        <Button
-          variant="gradient"
-          size="lg"
-          onClick={() => navigate('/')}
-          className="w-full"
-        >
-          Browse events
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Button>
       </motion.div>
     );
   }
 
+  const shakeAnimation = isShaking
+    ? {
+        x: [0, -8, 8, -6, 6, -3, 3, 0],
+        transition: { duration: 0.4 },
+      }
+    : { x: 0 };
+
   return (
     <motion.form
-      initial={false}
-      animate={
-        isShaking && !prefersReducedMotion
-          ? { x: [0, -6, 6, -4, 4, 0] }
-          : { x: 0 }
-      }
-      transition={{ duration: 0.32 }}
-      onAnimationComplete={() => setIsShaking(false)}
-      onSubmit={handleSubmit(onValid, onInvalid)}
       noValidate
+      onSubmit={handleSubmit(onValid, onInvalid)}
+      animate={prefersReducedMotion ? undefined : shakeAnimation}
+      onAnimationComplete={() => setIsShaking(false)}
       className="space-y-4"
     >
       <AuthErrorBanner message={serverError} />
 
-      <FormField id="signin-email" label="Email" error={errors.email?.message}>
+      <FormField
+        id="signin-email"
+        label="Email address"
+        error={errors.email?.message}
+      >
         <input
           id="signin-email"
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
-          aria-invalid={errors.email ? 'true' : 'false'}
-          aria-describedby={errors.email ? 'signin-email-error' : undefined}
-          className={cn(
-            'h-11 w-full rounded-xl border bg-background/70 px-3.5 text-sm text-text placeholder:text-text-muted/70 transition-colors',
-            'focus:outline-none focus-visible:ring-2',
-            errors.email
-              ? 'border-[#F0786B] focus:border-[#F0786B] focus-visible:ring-[#F0786B]/40'
-              : 'border-border focus:border-primary focus-visible:ring-primary/50',
-          )}
+          disabled={isSubmitting}
+          aria-invalid={Boolean(errors.email)}
           {...register('email')}
+          className={cn(
+            'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
+            errors.email
+              ? 'border-[#DE6B6B] focus:border-[#DE6B6B]'
+              : 'border-white/10 hover:border-white/20 focus:border-primary'
+          )}
         />
       </FormField>
 
@@ -134,30 +152,31 @@ export function SignInForm() {
           id="signin-password"
           autoComplete="current-password"
           placeholder="Enter your password"
+          disabled={isSubmitting}
           hasError={Boolean(errors.password)}
-          aria-describedby={errors.password ? 'signin-password-error' : undefined}
           {...register('password')}
         />
       </FormField>
 
-      <div className="pt-2">
-        <Button
-          type="submit"
-          variant="gradient"
-          size="lg"
-          disabled={isSubmitting}
-          className="w-full"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Signing in...
-            </>
-          ) : (
-            'Sign in'
-          )}
-        </Button>
-      </div>
+      <Button
+        type="submit"
+        variant="primary"
+        size="md"
+        className="w-full mt-2"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <span>Signing in...</span>
+          </>
+        ) : (
+          <>
+            <span>Sign in</span>
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </>
+        )}
+      </Button>
     </motion.form>
   );
 }

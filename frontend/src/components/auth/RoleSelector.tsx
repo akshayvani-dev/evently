@@ -61,10 +61,6 @@ export function RoleSelector({
 
   return (
     <div className="space-y-2">
-      <span id={labelId} className="block text-sm font-medium text-text">
-        How will you use Evently?
-      </span>
-
       <div
         role="radiogroup"
         aria-labelledby={labelId}

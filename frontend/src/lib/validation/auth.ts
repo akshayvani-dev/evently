@@ -29,9 +29,7 @@ export const signUpSchema = z.object({
   password: z
     .string()
     .min(1, 'Password is required')
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Za-z]/, 'Password must include at least one letter')
-    .regex(/[0-9]/, 'Password must include at least one number'),
+    .min(8, 'Password must be at least 8 characters'),
   role: z.enum(['attendee', 'organizer'], {
     error: 'Please select how you will use Evently',
   }),

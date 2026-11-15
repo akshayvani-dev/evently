@@ -13,10 +13,7 @@ export const signupSchema = z.object({
     .toLowerCase(),
   password: z
     .string({ required_error: 'Password is required' })
-    .min(8, 'Password must be at least 8 characters long')
-    .max(128, 'Password cannot exceed 128 characters')
-    .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
+    .min(8, 'Password must be at least 8 characters long'),
   role: z.enum(['organizer', 'attendee'], {
     errorMap: () => ({ message: "Role must be either 'organizer' or 'attendee'" }),
   }),
