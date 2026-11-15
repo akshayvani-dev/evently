@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prisma/client": ["./backend/node_modules/.prisma/client/index.d.ts"]
+    },
+    "types": ["node", "jest"],
+    "typeRoots": ["./backend/node_modules/@types"]
+  },
+  "include": [
+    "backend/src/**/*.ts",
+    "backend/tests/**/*.ts"
+  ]
+}

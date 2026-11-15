@@ -128,3 +128,38 @@ All endpoints under `/api/events` are protected with `authenticate` and `authori
 - `capacity`: positive integer (`> 0`)
 - `status`: enum `draft | published | canceled` (defaults to `draft` on create)
 - Unknown fields (such as `id`, `organizerId`, `createdAt`) are rejected via `.strict()`.
+
+
+## Event Registrations API
+
+### Endpoints
+
+1. `POST /api/events/:eventId/registrations` (Attendee only):
+   - Registers the attendee for an event.
+   - Enforces checks: event exists, not deleted, published, `startAt > now`, active capacity available, and no duplicate active registration.
+   - Runs in a transaction with row-level locking (`SELECT ... FOR UPDATE`) to prevent race conditions.
+   - Status: `201 Created` with `{ success: true, data: { registration } }`.
+
+2. `PATCH /api/registrations/:id/cancel` (Attendee only):
+   - Cancels own active registration before event start time.
+   - Soft-cancels the row by setting `status = 'canceled'`, `canceledAt`, and `canceledBy = req.user.id`.
+   - Frees up a spot for other attendees.
+   - Status: `200 OK` with `{ success: true, data: { registration } }`.
+
+3. `GET /api/users/me/registrations` (Attendee only):
+   - Returns attendee's registrations with associated event details.
+   - Excludes soft-deleted events.
+   - Supports query params: `?status=&page=&limit=`.
+   - Status: `200 OK` with `{ success: true, data: { registrations, total, page, limit } }`.
+
+4. `GET /api/events/:eventId/registrations` (Organizer only, own events):
+   - Returns list of active attendees (`name`, `email`, `registeredAt`) for the organizer's event.
+   - Supports query params: `?page=&limit=`.
+   - Status: `200 OK` with `{ success: true, data: { attendees, total, page, limit } }`.
+
+### Soft Deletion & Event Cancellation
+- `DELETE /api/events/:id` performs a soft delete (`deletedAt = now()`, `status = 'canceled'`).
+- Canceling or soft-deleting an event bulk-cancels all active registrations in the same transaction with `canceledBy = organizer.id`.
+- Soft-deleted events are excluded from all active queries.
+- Edits on canceled or deleted events are blocked.
+- Capacity updates are rejected (`400 Bad Request`) if reduced below the current active registration count.

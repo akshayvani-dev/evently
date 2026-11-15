@@ -16,6 +16,20 @@ export const errorHandler = (
     return;
   }
 
+  // Handle Prisma P2002 Unique Constraint Violation
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: string }).code === 'P2002'
+  ) {
+    res.status(409).json({
+      success: false,
+      message: 'Duplicate active registration conflict',
+    });
+    return;
+  }
+
   // Handle Express body-parser malformed JSON errors
   if (
     typeof err === 'object' &&

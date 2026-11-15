@@ -27,6 +27,7 @@ describe('Auth Integration Tests', () => {
   };
 
   beforeEach(async () => {
+    await prisma.registration.deleteMany();
     await prisma.event.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();

@@ -54,6 +54,7 @@ describe('Event CRUD Integration Tests', () => {
   };
 
   beforeEach(async () => {
+    await prisma.registration.deleteMany();
     await prisma.event.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
@@ -383,9 +384,11 @@ describe('Event CRUD Integration Tests', () => {
       expect(deleteRes.body.success).toBe(true);
       expect(deleteRes.body.data.message).toBe('Event deleted successfully');
 
-      // Check DB
+      // Check DB (soft deleted)
       const check = await prisma.event.findUnique({ where: { id: eventId } });
-      expect(check).toBeNull();
+      expect(check).not.toBeNull();
+      expect(check?.deletedAt).not.toBeNull();
+      expect(check?.status).toBe('canceled');
     });
   });
 });
