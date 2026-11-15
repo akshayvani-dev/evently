@@ -1,0 +1,6 @@
+{
+  "name": "Evently",
+  "description": "Evently — Modern event management platform where organizers create events and attendees discover and register for them.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

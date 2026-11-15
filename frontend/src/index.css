@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --color-background: #0F0E0C;
+  --color-surface: #181714;
+  --color-surface-raised: #211F1B;
+  --color-border: #2E2B26;
+
+  --color-primary: #FF6A2B;
+  --color-primary-hover: #FF8250;
+  --color-accent: #F5C84B;
+  --color-highlight: #7DD3C0;
+
+  --color-text: #F4EFE6;
+  --color-text-muted: #A8A094;
+
+  --color-status-published: #8FD18A;
+  --color-status-draft: #A8A094;
+  --color-status-danger: #F0786B;
+  --color-status-warning: #F5C84B;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #F6E9DC;
+    color: #F4EFE6;
+  }
+
+  body {
+    position: relative;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-color: #0F0E0C;
+    background-image:
+      radial-gradient(46% 24% at 86% 6%, rgba(255, 106, 43, 0.15) 0%, transparent 70%),
+      radial-gradient(36% 18% at 72% 10%, rgba(255, 106, 43, 0.10) 0%, transparent 72%),
+      linear-gradient(
+        180deg,
+        #F6E9DC 0%,
+        #F0C9A5 20%,
+        #C98A5E 40%,
+        #4A3125 62%,
+        #1A1511 82%,
+        #0F0E0C 100%
+      );
+    background-attachment: scroll;
+    background-repeat: no-repeat;
+  }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+}
+
+#root {
+  position: relative;
+  z-index: 2;
+}
+
+.bg-brand-gradient {
+  background-image: linear-gradient(135deg, #FF6A2B 0%, #FF9A3C 55%, #F5C84B 100%);
+}
+
+.text-brand-gradient {
+  background-image: linear-gradient(135deg, #FF6A2B 0%, #FF9A3C 55%, #F5C84B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-brand-gradient-on-light {
+  background-image: linear-gradient(135deg, #C83A06 0%, #D94E14 55%, #A65300 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
