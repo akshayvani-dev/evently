@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from '../components/dashboard/Header';
 import { Sidebar } from '../components/dashboard/Sidebar';
@@ -21,8 +20,6 @@ function getPageTitle(pathname: string): string {
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const prefersReducedMotion = useReducedMotion();
-  const isCreateEventPage = location.pathname.endsWith('/events/create');
   const closeDrawer = useCallback(() => setMobileOpen(false), []);
   const openDrawer = useCallback(() => setMobileOpen(true), []);
   const title = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
@@ -34,23 +31,7 @@ export function DashboardLayout() {
         <Sidebar mobileOpen={mobileOpen} onClose={closeDrawer} />
         <main id="dashboard-content" className="min-w-0 flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-10">
           <div className="mx-auto w-full max-w-[1600px]">
-            {isCreateEventPage ? (
-              <div key={location.pathname}>
-                <Outlet />
-              </div>
-            ) : (
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={location.pathname}
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={prefersReducedMotion ? undefined : { opacity: 0, y: -6 }}
-                  transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: 'easeOut' }}
-                >
-                  <Outlet />
-                </motion.div>
-              </AnimatePresence>
-            )}
+            <Outlet />
           </div>
         </main>
       </div>

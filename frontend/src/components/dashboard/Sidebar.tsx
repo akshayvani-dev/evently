@@ -48,7 +48,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {links.map(({ to, label, icon: Icon }) => (
         <NavLink key={to} to={to} className={linkClass}>
           {({ isActive }) => <>
-            {isActive && <motion.span layoutId="dashboard-nav-indicator" className="absolute inset-0 rounded-xl bg-white/10" transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 32 }} />}
+            {isActive && <span className="absolute inset-0 rounded-xl bg-white/10" aria-hidden="true" />}
             <Icon className="relative h-4 w-4" aria-hidden="true" />
             <span className="relative flex-1">{label}</span>
           </>}

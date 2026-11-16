@@ -136,7 +136,6 @@ export interface OrganizerEventFilters {
   limit?: number;
 }
 
-const organizerEventsCache = new Map<string, ListEventsResponse>();
 const organizerEventsRequests = new Map<string, Promise<ListEventsResponse>>();
 const publicEventsCache = new Map<string, ListEventsResponse>();
 const publicEventsRequests = new Map<string, Promise<ListEventsResponse>>();
@@ -181,7 +180,6 @@ function getEventAttendees(
 }
 
 export function clearOrganizerEventsCache(): void {
-  organizerEventsCache.clear();
   organizerEventsRequests.clear();
   publicEventsCache.clear();
   publicEventsRequests.clear();
@@ -276,14 +274,11 @@ export const eventApi = {
       ...(title ? { title } : {}),
     };
 
-    const cached = organizerEventsCache.get(cacheKey);
-    if (cached) return Promise.resolve(cached);
     const pending = organizerEventsRequests.get(cacheKey);
     if (pending) return pending;
 
     const request = api.get<ListEventsResponse>('/events', { params })
       .then(({ data }) => {
-        organizerEventsCache.set(cacheKey, data);
         organizerEventsRequests.delete(cacheKey);
         return data;
       })

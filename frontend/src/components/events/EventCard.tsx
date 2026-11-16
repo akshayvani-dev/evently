@@ -10,7 +10,6 @@ import {
   Ticket,
   Users,
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import type { ComputedBadgeVariant, Event } from "../../types/event";
 import { cn, formatEventDate, getEventAvailability } from "../../lib/utils";
@@ -47,7 +46,6 @@ export function EventCard({
   event,
   isRegistered: initialIsRegistered = false,
 }: EventCardProps) {
-  const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
@@ -155,23 +153,14 @@ export function EventCard({
 
   return (
     <>
-    <motion.article
+    <article
       role="link"
       tabIndex={0}
       aria-label={`View details for ${event.title}`}
       onClick={handleOpenDetails}
       onKeyDown={handleCardKeyDown}
-      whileHover={
-        prefersReducedMotion
-          ? undefined
-          : {
-              y: -4,
-              boxShadow: "0 0 24px rgba(255, 106, 43, 0.30)",
-            }
-      }
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "group flex w-full cursor-pointer flex-col rounded-2xl border border-[#1A1713]/12 bg-white/65 backdrop-blur-md p-5 sm:p-6 transition-colors duration-200",
+        "group flex w-full cursor-pointer flex-col rounded-2xl border border-[#1A1713]/12 bg-white/65 backdrop-blur-md p-5 sm:p-6",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0C9A5]",
         isCanceled ? "opacity-85" : "hover:border-primary/55 hover:bg-white/75",
       )}
@@ -256,6 +245,7 @@ export function EventCard({
 
         {isEventOwner ? (
           <Button
+            disableMotion
             variant="outline"
             size="md"
             onClick={(e) => {
@@ -269,6 +259,7 @@ export function EventCard({
           </Button>
         ) : isOrganizer ? null : (
           <Button
+            disableMotion
             variant={
               isRegistered
                 ? "secondary"
@@ -337,7 +328,7 @@ export function EventCard({
           </p>
         )}
       </div>
-    </motion.article>
+    </article>
     {isAttendee && (
       <ConfirmationDialog
         isOpen={isRegistrationConfirmOpen}

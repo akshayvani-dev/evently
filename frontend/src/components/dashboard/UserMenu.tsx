@@ -35,7 +35,7 @@ export function UserMenu() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-2.5 text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-2.5 text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-gradient text-xs font-semibold text-[#0F0E0C]" aria-hidden="true">
           {getInitials(name)}
@@ -51,7 +51,7 @@ export function UserMenu() {
             role="menuitem"
             disabled={isLoggingOut}
             onClick={() => { setOpen(false); void logout(); }}
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            className="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             {isLoggingOut ? 'Logging out…' : 'Log out'}

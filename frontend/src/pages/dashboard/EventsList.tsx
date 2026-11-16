@@ -180,6 +180,7 @@ export function EventsList({ status }: EventsListProps) {
             <div role="alert" className="flex items-center justify-center gap-3 py-4 text-sm text-red-800">
               <span>{loadMoreError}</span>
               <Button
+                disableMotion
                 variant="secondary"
                 size="sm"
                 onClick={() => {

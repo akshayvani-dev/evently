@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarX2, RotateCcw } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
 import type { DateFilterOption } from '../../types/event';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/SectionHeading';
@@ -32,7 +31,6 @@ export function EventsGrid() {
   const loadingMoreRef = useRef(false);
   const loadMoreErrorRef = useRef(false);
 
-  const prefersReducedMotion = useReducedMotion();
   const queryKey = JSON.stringify([debouncedSearchQuery, dateFilter]);
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
@@ -196,6 +194,7 @@ export function EventsGrid() {
               Try clearing your search terms or selecting a broader date range.
             </p>
             <Button
+              disableMotion
               variant="secondary"
               size="md"
               onClick={handleResetFilters}
@@ -207,17 +206,9 @@ export function EventsGrid() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {events.map((event, index) => (
-              <motion.div
+            {events.map((event) => (
+              <div
                 key={event.id}
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.05 }}
-                transition={{
-                  duration: 0.35,
-                  delay: prefersReducedMotion ? 0 : Math.min(index * 0.05, 0.25),
-                  ease: [0.16, 1, 0.3, 1],
-                }}
                 className="flex"
               >
                 <EventCard
@@ -225,7 +216,7 @@ export function EventsGrid() {
                   isRegistered={registeredIds.has(event.id)}
                   onToggleRegister={handleToggleRegister}
                 />
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
@@ -241,6 +232,7 @@ export function EventsGrid() {
               <div role="alert" className="flex items-center justify-center gap-3 py-2 text-sm text-[#991B1B]">
                 <span>{loadMoreError}</span>
                 <Button
+                  disableMotion
                   variant="secondary"
                   size="sm"
                   onClick={() => {
