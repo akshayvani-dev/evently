@@ -46,6 +46,7 @@ export function EventCard({
   const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const role = useAppSelector((state) => state.auth.user?.role);
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const isOrganizer = role === "organizer";
 
   const availability = getEventAvailability(event, isRegistered);
@@ -67,7 +68,9 @@ export function EventCard({
       : `${availability.placesRemaining} of ${event.capacity} places left`;
 
   const handleOpenDetails = () => {
-    navigate(`/event-details/${event.id}`);
+    navigate(isAuthenticated
+      ? `/dashboard/events/${event.id}`
+      : `/event-details/${event.id}`);
   };
 
   const handleCardKeyDown = (e: KeyboardEvent<HTMLElement>) => {
@@ -204,6 +207,7 @@ export function EventCard({
             disabled={isActionDisabled}
             onClick={(e) => {
               e.stopPropagation();
+              navigate('/auth');
             }}
             aria-pressed={isRegistered}
             className={cn(

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarX2, RotateCcw } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { DateFilterOption } from '../../types/event';
-import { matchesDateFilter } from '../../lib/utils';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/SectionHeading';
 import { Button } from '../ui/Button';
@@ -15,6 +14,7 @@ import type { Event } from '../../types/event';
 
 export function EventsGrid() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
   const [registeredIds, setRegisteredIds] = useState<ReadonlySet<string>>(() => new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -24,8 +24,21 @@ export function EventsGrid() {
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(
+      () => setDebouncedSearchQuery(searchQuery.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
     let isMounted = true;
-    eventApi.listEvents('published')
+    setIsLoading(true);
+    setLoadError(null);
+    eventApi.listEvents('published', {
+      title: debouncedSearchQuery,
+      dateFilter,
+    })
       .then((response) => {
         if (!response.success) throw new Error(response.message || 'Unable to load events.');
         if (isMounted) setEvents(response.data.events);
@@ -38,23 +51,9 @@ export function EventsGrid() {
       });
 
     return () => { isMounted = false; };
-  }, []);
+  }, [dateFilter, debouncedSearchQuery]);
 
-  const filteredEvents = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return events.filter((event) => {
-      const matchesDate = matchesDateFilter(event.startAt, dateFilter);
-      const matchesQuery =
-        !query ||
-        event.title.toLowerCase().includes(query) ||
-        event.description.toLowerCase().includes(query) ||
-        event.location.toLowerCase().includes(query) ||
-        event.organizerName.toLowerCase().includes(query);
-
-      return matchesDate && matchesQuery;
-    });
-  }, [events, searchQuery, dateFilter]);
+  const filteredEvents = events;
 
   const handleToggleRegister = (eventId: string) => {
     setRegisteredIds((prev) => {

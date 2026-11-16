@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { DateFilterOption, Event, EventAvailability } from '../types/event';
+import type { Event, EventAvailability } from '../types/event';
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -137,27 +137,6 @@ export function getEventAvailability(event: Event, isUserRegistered = false): Ev
     badgeVariant: 'published',
     isDisabled: false,
   };
-}
-
-export function matchesDateFilter(isoDate: string, filter: DateFilterOption, referenceDate = new Date()): boolean {
-  if (filter === 'all') return true;
-
-  const eventDate = new Date(isoDate);
-  const diffMs = eventDate.getTime() - referenceDate.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  if (diffDays < -1) return false;
-
-  switch (filter) {
-    case 'this-week':
-      return diffDays <= 7;
-    case 'this-month':
-      return diffDays <= 30;
-    case 'next-3-months':
-      return diffDays <= 90;
-    default:
-      return true;
-  }
 }
 
 export function smoothScrollTo(targetId: string): void {

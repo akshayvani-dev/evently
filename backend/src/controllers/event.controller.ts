@@ -1,10 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
+import { AppError } from '../errors/AppError';
 import { EventService } from '../services/event.service';
+import { publicEventListQuerySchema } from '../validators/event.validator';
 
 export class EventController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const events = await EventService.listEvents('published');
+      const query = publicEventListQuerySchema.safeParse(req.query);
+      if (!query.success) {
+        throw new AppError(400, 'Validation failed', query.error.flatten().fieldErrors);
+      }
+
+      const events = await EventService.listEvents('published', undefined, query.data);
       res.status(200).json({ success: true, data: { events } });
     } catch (error) {
       next(error);

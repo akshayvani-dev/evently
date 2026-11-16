@@ -91,6 +91,80 @@ describe('Event CRUD Integration Tests', () => {
     });
   });
 
+  describe('GET /api/v1/events/public filters', () => {
+    const createPublishedEvent = (title: string, startAt: string) => request(app)
+      .post('/api/v1/events')
+      .set('Cookie', [`accessToken=${tokenAlice}`])
+      .send({ ...sampleEventData, title, startAt, status: 'published' });
+
+    it('returns events with the latest start date first', async () => {
+      await createPublishedEvent(
+        'Earlier Event',
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+      await createPublishedEvent(
+        'Later Event',
+        new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+
+      const res = await request(app).get('/api/v1/events/public');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.events.map((event: { title: string }) => event.title))
+        .toEqual(['Later Event', 'Earlier Event']);
+    });
+
+    it('filters published events by a case-insensitive title substring', async () => {
+      await createPublishedEvent(
+        'Community Design Meetup',
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+      await createPublishedEvent(
+        'Backend Systems Workshop',
+        new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+
+      const res = await request(app)
+        .get('/api/v1/events/public')
+        .query({ title: 'DESIGN' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.events.map((event: { title: string }) => event.title))
+        .toEqual(['Community Design Meetup']);
+    });
+
+    it('filters published events by the selected date range', async () => {
+      const withinWeekTitle = 'Event Within Week';
+      const beyondWeekTitle = 'Event Beyond Week';
+      await createPublishedEvent(
+        withinWeekTitle,
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+      await createPublishedEvent(
+        beyondWeekTitle,
+        new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+
+      const res = await request(app)
+        .get('/api/v1/events/public')
+        .query({ dateFilter: 'this-week' });
+
+      expect(res.status).toBe(200);
+      const titles = res.body.data.events.map((event: { title: string }) => event.title);
+      expect(titles).toContain(withinWeekTitle);
+      expect(titles).not.toContain(beyondWeekTitle);
+    });
+
+    it('rejects unsupported date filter values', async () => {
+      const res = await request(app)
+        .get('/api/v1/events/public')
+        .query({ dateFilter: 'next-year' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
   describe('POST /api/v1/events (Create Event)', () => {
     it('should allow organizer to create an event with valid data', async () => {
       const res = await request(app)

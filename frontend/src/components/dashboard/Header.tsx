@@ -2,6 +2,7 @@ import { Menu, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { UserMenu } from './UserMenu';
+import { useAppSelector } from '../../store';
 
 interface HeaderProps {
   title: string;
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ title, onMenuClick, mobileOpen }: HeaderProps) {
   const navigate = useNavigate();
+  const isOrganizer = useAppSelector((state) => state.auth.user?.role === 'organizer');
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0F0E0C]/80 backdrop-blur-xl">
@@ -31,11 +33,13 @@ export function Header({ title, onMenuClick, mobileOpen }: HeaderProps) {
         </Link>
         <span className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden="true" />
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-white sm:text-base">{title}</h1>
-        <Button variant="gradient" size="md" onClick={() => navigate('/dashboard/events/create')} className="px-3 sm:px-5">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Create event</span>
-          <span className="sr-only sm:hidden">Create event</span>
-        </Button>
+        {isOrganizer && (
+          <Button variant="gradient" size="md" onClick={() => navigate('/dashboard/events/create')} className="px-3 sm:px-5">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Create event</span>
+            <span className="sr-only sm:hidden">Create event</span>
+          </Button>
+        )}
         <UserMenu />
       </div>
     </header>

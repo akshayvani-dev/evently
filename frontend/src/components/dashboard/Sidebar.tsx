@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { CalendarDays, CircleCheck, CircleDashed, X, XCircle } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
-import { eventApi } from '../../api/eventapi';
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -12,7 +11,6 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
-  const [counts, setCounts] = useState({ all: 0, active: 0, draft: 0, canceled: 0, completed: 0 });
 
   useEffect(() => onClose(), [location.pathname, onClose]);
   useEffect(() => {
@@ -23,22 +21,6 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    let isMounted = true;
-    eventApi.listOrganizerEvents('all').then((response) => {
-      if (!isMounted || !response.success) return;
-      const events = response.data.events;
-      setCounts({
-        all: events.length,
-        active: events.filter((event) => event.status === 'published').length,
-        draft: events.filter((event) => event.status === 'draft').length,
-        canceled: events.filter((event) => event.status === 'canceled').length,
-        completed: events.filter((event) => event.status === 'completed').length,
-      });
-    }).catch(() => undefined);
-    return () => { isMounted = false; };
-  }, []);
-
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? 'font-medium text-white' : 'text-white/65 hover:bg-white/5 hover:text-white'}`;
 
@@ -47,18 +29,17 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       <nav aria-label="Dashboard navigation" className="space-y-1">
         <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Events</p>
         {[
-          { to: '/dashboard/events/all', label: 'All events', icon: CalendarDays, count: counts.all },
-          { to: '/dashboard/events/active', label: 'Active', icon: CircleCheck, count: counts.active },
-          { to: '/dashboard/events/draft', label: 'Draft', icon: CircleDashed, count: counts.draft },
-          { to: '/dashboard/events/canceled', label: 'Canceled', icon: XCircle, count: counts.canceled },
-          { to: '/dashboard/events/completed', label: 'Completed', icon: CircleCheck, count: counts.completed },
-        ].map(({ to, label, icon: Icon, count }) => (
+          { to: '/dashboard/events/all', label: 'All events', icon: CalendarDays },
+          { to: '/dashboard/events/active', label: 'Active', icon: CircleCheck },
+          { to: '/dashboard/events/draft', label: 'Draft', icon: CircleDashed },
+          { to: '/dashboard/events/canceled', label: 'Canceled', icon: XCircle },
+          { to: '/dashboard/events/completed', label: 'Completed', icon: CircleCheck },
+        ].map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={linkClass}>
             {({ isActive }) => <>
               {isActive && <motion.span layoutId="dashboard-nav-indicator" className="absolute inset-0 rounded-xl bg-white/10" transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 32 }} />}
               <Icon className="relative h-4 w-4" aria-hidden="true" />
               <span className="relative flex-1">{label}</span>
-              <span className={`relative rounded-full px-2 py-0.5 text-xs tabular-nums ${isActive ? 'bg-white/15 text-white' : 'bg-white/5 text-white/55'}`}>{count}</span>
             </>}
           </NavLink>
         ))}

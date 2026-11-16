@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -19,6 +19,7 @@ import { OrganizerCard } from '../components/events/OrganizerCard';
 import { SlotsCard } from '../components/events/SlotsCard';
 import { eventApi } from '../api/eventapi';
 import { getApiErrorMessage } from '../api/authapi';
+import { useAppSelector } from '../store';
 
 function getBadgeIcon(variant: ComputedBadgeVariant) {
   switch (variant) {
@@ -32,19 +33,13 @@ function getBadgeIcon(variant: ComputedBadgeVariant) {
   }
 }
 
-interface EventDetailsPageProps {
-  backTo?: string;
-  dashboardMode?: boolean;
-}
-
-export function EventDetailsPage({
-  backTo = '/#events',
-  dashboardMode = false,
-}: EventDetailsPageProps) {
+export function EventDetailsPage() {
   const params = useParams<{ id: string; eventId: string }>();
   const id = params.id ?? params.eventId;
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
+  const { user, isLoading: isAuthLoading } = useAppSelector((state) => state.auth);
+  const isOrganizer = user?.role === 'organizer';
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -59,14 +54,18 @@ export function EventDetailsPage({
     setLoadError(null);
     setIsLoading(true);
 
+    if (isAuthLoading) {
+      return () => { isMounted = false; };
+    }
+
     if (!id) {
       setLoadError('Event not found.');
       setIsLoading(false);
       return () => { isMounted = false; };
     }
 
-    const request = dashboardMode
-      ? eventApi.getOrganizerEvent(id)
+    const request = isOrganizer && user
+      ? eventApi.getOrganizerEvent(id, user.id)
       : eventApi.getPublicEvent(id);
 
     request
@@ -80,7 +79,7 @@ export function EventDetailsPage({
       .finally(() => { if (isMounted) setIsLoading(false); });
 
     return () => { isMounted = false; };
-  }, [dashboardMode, id]);
+  }, [isAuthLoading, isOrganizer, id]);
 
   if (isLoading) {
     return (
@@ -125,7 +124,7 @@ export function EventDetailsPage({
             <Button
               variant="gradient"
               size="lg"
-              onClick={() => navigate(backTo)}
+              onClick={() => navigate(-1)}
               className="mt-7"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -193,13 +192,14 @@ export function EventDetailsPage({
     <div className="pt-8 pb-28 sm:pt-12 lg:pb-20">
       <Container className="space-y-8">
         <div>
-          <Link
-            to={backTo}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-[#5C5246] transition-colors hover:text-[#1A1713] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6E9DC]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span>Back to events</span>
-          </Link>
+          </button>
         </div>
 
         {/* Minimal hero header: status + title only */}
@@ -259,8 +259,8 @@ export function EventDetailsPage({
               <EventInfo event={event} />
 
               <div className="border-t border-border/70 pt-5 space-y-2.5">
-                {dashboardMode ? (
-                  <Button variant="outline" size="lg" className="w-full" onClick={() => navigate(backTo)}>
+                {isOrganizer ? (
+                  <Button variant="outline" size="lg" className="w-full" onClick={() => navigate(-1)}>
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Back to events
                   </Button>
@@ -270,6 +270,7 @@ export function EventDetailsPage({
                     size="lg"
                     disabled={isRegisterDisabled}
                     className="w-full"
+                    onClick={() => navigate('/auth')}
                   >
                     {registerButtonContent}
                   </Button>
@@ -285,7 +286,7 @@ export function EventDetailsPage({
       </Container>
 
       {/* Mobile bottom quick action bar */}
-      {!dashboardMode && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+      {!isOrganizer && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <p className="truncate text-xs font-medium text-text-muted">
             {disabledReason ?? 'Reserve your spot'}
@@ -296,6 +297,7 @@ export function EventDetailsPage({
             size="md"
             disabled={isRegisterDisabled}
             className="shrink-0"
+            onClick={() => navigate('/auth')}
           >
             {registerButtonContent}
           </Button>

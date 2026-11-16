@@ -30,13 +30,11 @@ export function EventsList({ status }: EventsListProps) {
     let isMounted = true;
     setLoading(true);
     setLoadError(null);
-    eventApi.listOrganizerEvents('all')
+    const apiStatus = status === 'active' ? 'published' : status;
+    eventApi.listOrganizerEvents(apiStatus)
       .then((response) => {
         if (!response.success) throw new Error(response.message || 'Unable to load your events.');
-        const filteredEvents = status === 'all'
-          ? response.data.events
-          : response.data.events.filter((event) => event.status === (status === 'active' ? 'published' : status));
-        if (isMounted) setEvents(filteredEvents);
+        if (isMounted) setEvents(response.data.events);
       })
       .catch((error: unknown) => {
         if (isMounted) setLoadError(getApiErrorMessage(error, 'Unable to load your events.'));

@@ -26,7 +26,7 @@ export function SearchFilter({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
         <div className="relative md:col-span-8">
           <label htmlFor="event-search" className="sr-only">
-            Search events by title, city, or organizer
+            Search events by title
           </label>
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5C5246]"
@@ -37,7 +37,7 @@ export function SearchFilter({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search events by title, city, or organizer..."
+            placeholder="Search events by title..."
             className="h-11 w-full rounded-xl border border-[#1A1713]/15 bg-white/60 pl-10 pr-10 text-sm text-[#1A1713] placeholder:text-[#5C5246] transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           />
           {searchQuery ? (

@@ -11,7 +11,8 @@ import {
   Users,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { cn, smoothScrollTo } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { cn } from '../../lib/utils';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/SectionHeading';
 import { Button } from '../ui/Button';
@@ -39,6 +40,7 @@ const ORGANIZER_BENEFITS = [
 export function ForOrganizers() {
   const [previewState, setPreviewState] = useState<'published' | 'draft'>('published');
   const prefersReducedMotion = useReducedMotion();
+  const navigate = useNavigate();
 
   const isPublished = previewState === 'published';
 
@@ -84,7 +86,7 @@ export function ForOrganizers() {
               <Button
                 variant="gradient"
                 size="lg"
-                onClick={() => smoothScrollTo('#cta')}
+                onClick={() => navigate('/auth')}
               >
                 Start hosting events
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />

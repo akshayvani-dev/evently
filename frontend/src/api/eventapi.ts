@@ -1,5 +1,5 @@
 import api from '../lib/axios';
-import type { Event, EventStatus } from '../types/event';
+import type { DateFilterOption, Event, EventStatus } from '../types/event';
 
 export type EventListStatus = EventStatus | 'all';
 
@@ -46,66 +46,104 @@ export interface EventDetailsResponse {
   message?: string;
 }
 
-let organizerEventsCache: ListEventsResponse | null = null;
-let organizerEventsRequest: Promise<ListEventsResponse> | null = null;
-const publicEventsCache = new Map<EventListStatus, ListEventsResponse>();
-const publicEventsRequests = new Map<EventListStatus, Promise<ListEventsResponse>>();
+export interface PublicEventFilters {
+  title?: string;
+  dateFilter?: DateFilterOption;
+}
+
+const organizerEventsCache = new Map<EventListStatus, ListEventsResponse>();
+const organizerEventsRequests = new Map<EventListStatus, Promise<ListEventsResponse>>();
+const publicEventsCache = new Map<string, ListEventsResponse>();
+const publicEventsRequests = new Map<string, Promise<ListEventsResponse>>();
+const publicEventDetailsRequests = new Map<string, Promise<EventDetailsResponse>>();
+const organizerEventDetailsRequests = new Map<string, Promise<EventDetailsResponse>>();
+
+function getEventDetails(
+  requests: Map<string, Promise<EventDetailsResponse>>,
+  key: string,
+  path: string,
+): Promise<EventDetailsResponse> {
+  const pending = requests.get(key);
+  if (pending) return pending;
+
+  const request = api.get<EventDetailsResponse>(path)
+    .then(({ data }) => data)
+    .finally(() => requests.delete(key));
+  requests.set(key, request);
+  return request;
+}
 
 export function clearOrganizerEventsCache(): void {
-  organizerEventsCache = null;
-  organizerEventsRequest = null;
+  organizerEventsCache.clear();
+  organizerEventsRequests.clear();
   publicEventsCache.clear();
   publicEventsRequests.clear();
 }
 
 export const eventApi = {
-  listEvents: (status: EventListStatus = 'published'): Promise<ListEventsResponse> => {
-    const cached = publicEventsCache.get(status);
+  listEvents: (
+    status: EventListStatus = 'published',
+    filters: PublicEventFilters = {},
+  ): Promise<ListEventsResponse> => {
+    const title = filters.title?.trim() ?? '';
+    const dateFilter = filters.dateFilter ?? 'all';
+    const cacheKey = JSON.stringify([status, title.toLowerCase(), dateFilter]);
+    const params = {
+      status,
+      ...(title ? { title } : {}),
+      ...(dateFilter !== 'all' ? { dateFilter } : {}),
+    };
+
+    const cached = publicEventsCache.get(cacheKey);
     if (cached) return Promise.resolve(cached);
-    const pending = publicEventsRequests.get(status);
+    const pending = publicEventsRequests.get(cacheKey);
     if (pending) return pending;
 
-    const request = api.get<ListEventsResponse>('/events/public', { params: { status } })
+    const request = api.get<ListEventsResponse>('/events/public', { params })
       .then(({ data }) => {
-        publicEventsCache.set(status, data);
-        publicEventsRequests.delete(status);
+        publicEventsCache.set(cacheKey, data);
+        publicEventsRequests.delete(cacheKey);
         return data;
       })
       .catch((error: unknown) => {
-        publicEventsRequests.delete(status);
+        publicEventsRequests.delete(cacheKey);
         throw error;
       });
-    publicEventsRequests.set(status, request);
+    publicEventsRequests.set(cacheKey, request);
     return request;
   },
 
   listOrganizerEvents: (status: EventListStatus = 'all'): Promise<ListEventsResponse> => {
-    if (status === 'all' && organizerEventsCache) return Promise.resolve(organizerEventsCache);
-    if (status === 'all' && organizerEventsRequest) return organizerEventsRequest;
+    const cached = organizerEventsCache.get(status);
+    if (cached) return Promise.resolve(cached);
+    const pending = organizerEventsRequests.get(status);
+    if (pending) return pending;
 
     const request = api.get<ListEventsResponse>('/events', { params: { status } })
       .then(({ data }) => {
-        if (status === 'all') organizerEventsCache = data;
+        organizerEventsCache.set(status, data);
+        organizerEventsRequests.delete(status);
         return data;
+      })
+      .catch((error: unknown) => {
+        organizerEventsRequests.delete(status);
+        throw error;
       });
 
-    if (status === 'all') {
-      organizerEventsRequest = request;
-      void request.catch(() => {
-        if (organizerEventsRequest === request) organizerEventsRequest = null;
-      });
-    }
+    organizerEventsRequests.set(status, request);
     return request;
   },
 
-  getPublicEvent: async (eventId: string): Promise<EventDetailsResponse> => {
-    const response = await api.get<EventDetailsResponse>(`/events/public/${eventId}`);
-    return response.data;
+  getPublicEvent: (eventId: string): Promise<EventDetailsResponse> => {
+    return getEventDetails(publicEventDetailsRequests, eventId, `/events/public/${eventId}`);
   },
 
-  getOrganizerEvent: async (eventId: string): Promise<EventDetailsResponse> => {
-    const response = await api.get<EventDetailsResponse>(`/events/${eventId}`);
-    return response.data;
+  getOrganizerEvent: (eventId: string, organizerId: string): Promise<EventDetailsResponse> => {
+    return getEventDetails(
+      organizerEventDetailsRequests,
+      `${organizerId}:${eventId}`,
+      `/events/${eventId}`,
+    );
   },
 
   createEvent: async (payload: CreateEventPayload): Promise<CreateEventResponse> => {

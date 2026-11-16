@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import {
   CreateEventInput,
   PatchEventInput,
+  PublicEventListQuery,
   UpdateEventInput,
 } from '../validators/event.validator';
 
@@ -16,7 +17,11 @@ interface LockedEventRow {
 }
 
 export class EventService {
-  static async listEvents(status: 'all' | 'published' | 'draft' | 'canceled' | 'completed', organizerId?: string) {
+  static async listEvents(
+    status: 'all' | 'published' | 'draft' | 'canceled' | 'completed',
+    organizerId?: string,
+    filters: PublicEventListQuery = {},
+  ) {
     const now = new Date();
     await prisma.$executeRaw`
       UPDATE "events"
@@ -25,6 +30,14 @@ export class EventService {
         AND "start_at" <= ${now}
         AND "deleted_at" IS NULL
     `;
+
+    const dateFilterEnd = filters.dateFilter === 'this-week'
+      ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+      : filters.dateFilter === 'this-month'
+        ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+        : filters.dateFilter === 'next-3-months'
+          ? new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
+          : null;
 
     const completedIds = status === 'completed'
       ? await prisma.$queryRaw<Array<{ id: string }>>`
@@ -37,13 +50,15 @@ export class EventService {
       where: {
         deletedAt: null,
         ...(organizerId ? { organizerId } : {}),
+        ...(filters.title ? { title: { contains: filters.title, mode: 'insensitive' } } : {}),
+        ...(dateFilterEnd ? { startAt: { gte: now, lte: dateFilterEnd } } : {}),
         ...(status === 'all'
           ? {}
           : status === 'completed'
             ? { id: { in: completedIds?.map(({ id }) => id) ?? [] } }
             : { status }),
       },
-      orderBy: { startAt: 'asc' },
+      orderBy: { startAt: 'desc' },
       include: {
         organizer: { select: { name: true } },
         registrations: { where: { status: 'active' }, select: { id: true } },

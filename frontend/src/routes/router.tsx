@@ -16,6 +16,7 @@ import { EventsList } from '../pages/dashboard/EventsList';
 import { CreateEvent } from '../pages/dashboard/CreateEvent';
 import { NotFound } from '../pages/dashboard/NotFound';
 import { smoothScrollTo } from '../lib/utils';
+import { useAppSelector } from '../store';
 
 function LandingPage() {
   const { hash } = useLocation();
@@ -33,27 +34,60 @@ function MainLayout({ children }: { children: ReactNode }) {
   return <><Navbar /><main className="flex-1">{children}</main><Footer /></>;
 }
 
+function HomeRoute() {
+  const { user, isLoading } = useAppSelector((state) => state.auth);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Verifying your session">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-primary" aria-hidden="true" />
+        <span className="sr-only">Verifying your session</span>
+      </div>
+    );
+  }
+
+  return user?.role === 'organizer'
+    ? <Navigate to="/dashboard/events/all" replace />
+    : <MainLayout><LandingPage /></MainLayout>;
+}
+
+function OrganizerRoute() {
+  const role = useAppSelector((state) => state.auth.user?.role);
+  return role === 'organizer' ? <Outlet /> : <Navigate to="/" replace />;
+}
+
+function DashboardEventDetailsRoute() {
+  const role = useAppSelector((state) => state.auth.user?.role);
+  return role === 'organizer'
+    ? <DashboardLayout />
+    : <MainLayout><Outlet /></MainLayout>;
+}
+
 export function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
+      <Route path="/" element={<HomeRoute />} />
       <Route path="/event-details/:id" element={<MainLayout><EventDetailsPage /></MainLayout>} />
       <Route path="/auth" element={<AuthPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<Overview />} />
-          <Route path="events" element={<Outlet />}>
-            <Route index element={<Navigate to="all" replace />} />
-            <Route path="all" element={<EventsList status="all" />} />
-            <Route path="active" element={<EventsList status="active" />} />
-            <Route path="draft" element={<EventsList status="draft" />} />
-            <Route path="canceled" element={<EventsList status="canceled" />} />
-            <Route path="completed" element={<EventsList status="completed" />} />
-            <Route path="create" element={<CreateEvent />} />
-            <Route path=":eventId" element={<EventDetailsPage backTo="/dashboard/events/all" dashboardMode />} />
+        <Route path="/dashboard/events/:eventId" element={<DashboardEventDetailsRoute />}>
+          <Route index element={<EventDetailsPage />} />
+        </Route>
+        <Route element={<OrganizerRoute />}>
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<Overview />} />
+            <Route path="events" element={<Outlet />}>
+              <Route index element={<Navigate to="all" replace />} />
+              <Route path="all" element={<EventsList status="all" />} />
+              <Route path="active" element={<EventsList status="active" />} />
+              <Route path="draft" element={<EventsList status="draft" />} />
+              <Route path="canceled" element={<EventsList status="canceled" />} />
+              <Route path="completed" element={<EventsList status="completed" />} />
+              <Route path="create" element={<CreateEvent />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Route>
-          <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
       <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />

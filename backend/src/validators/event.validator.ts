@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export const publicEventListQuerySchema = z.object({
+  title: z.string().trim().max(255, 'title cannot exceed 255 characters').optional(),
+  dateFilter: z.enum(['all', 'this-week', 'this-month', 'next-3-months']).optional(),
+});
+
 const isValidIanaTimezone = (tz: string): boolean => {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz });
@@ -111,3 +116,4 @@ export const patchEventSchema = z
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export type PatchEventInput = z.infer<typeof patchEventSchema>;
+export type PublicEventListQuery = z.infer<typeof publicEventListQuerySchema>;

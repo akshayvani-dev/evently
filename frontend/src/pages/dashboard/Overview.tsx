@@ -16,10 +16,12 @@ export function Overview() {
       <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
         Your events and organizer tools are ready. Create an event to get started.
       </p>
-      <Button variant="gradient" size="md" className="mt-7" onClick={() => navigate('/dashboard/events/create')}>
-        <Plus className="h-4 w-4" aria-hidden="true" />
-        Create event
-      </Button>
+      {user?.role === 'organizer' && (
+        <Button variant="gradient" size="md" className="mt-7" onClick={() => navigate('/dashboard/events/create')}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Create event
+        </Button>
+      )}
     </section>
   );
 }
