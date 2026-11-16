@@ -237,7 +237,6 @@ export function EditEvent() {
   const eventLink = event ? `/dashboard/events/${event.id}` : '/dashboard/events/all';
   const canEdit = Boolean(
     event
-    && event.status !== 'canceled'
     && !isEventStarted(event.startAt)
     && new Date(event.startAt).getTime() > currentTime,
   );
@@ -297,7 +296,7 @@ export function EditEvent() {
             {event ? 'Event can no longer be edited' : 'Unable to edit event'}
           </h1>
           <p role={loadError ? 'alert' : undefined} className="mt-2 text-sm text-white/70">
-            {loadError ?? 'Canceled events and events that have started cannot be edited.'}
+            {loadError ?? 'Events that have started cannot be edited.'}
           </p>
         </div>
       </section>

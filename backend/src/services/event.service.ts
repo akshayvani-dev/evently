@@ -203,11 +203,6 @@ export class EventService {
         throw new AppError(400, 'Cannot modify an event after it has started');
       }
 
-      // Block edits on canceled or deleted events
-      if (event.status === 'canceled') {
-        throw new AppError(400, 'Cannot modify a canceled event');
-      }
-
       // Capacity update: reject if below active registration count
       if (input.capacity !== undefined) {
         const activeCount = await tx.registration.count({
@@ -279,11 +274,6 @@ export class EventService {
 
       if (event.startAt.getTime() <= Date.now()) {
         throw new AppError(400, 'Cannot modify an event after it has started');
-      }
-
-      // Block edits on canceled or deleted events
-      if (event.status === 'canceled') {
-        throw new AppError(400, 'Cannot modify a canceled event');
       }
 
       // Capacity update: reject if below active registration count

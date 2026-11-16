@@ -191,8 +191,7 @@ export function EventDetailsPage() {
   const isEventOwner = Boolean(isOrganizer && user?.id === event.organizerId);
   const canManage = Boolean(
     isEventOwner
-    && !hasStarted
-    && event.status !== 'canceled',
+    && !hasStarted,
   );
 
   const isCanceled = event.status === 'canceled';

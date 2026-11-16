@@ -107,12 +107,12 @@ All endpoints under `/api/events` are protected with `authenticate` and `authori
 2. `PUT /api/events/:id`:
    - Full update requiring all fields: `title`, `description`, `startAt`, `timezone`, `location`, `capacity`, and `status`.
    - Validates ownership (403 if belonging to another organizer, 404 if not found).
-   - Enforces status rule (cannot transition out of `canceled`).
+   - Allows canceled events to be edited again while they have not started.
    - Returns status `200` with `{ success: true, data: { event } }`.
 3. `PATCH /api/events/:id`:
    - Partial update (any non-empty subset of allowed fields).
    - Validates ownership (403 if belonging to another organizer, 404 if not found).
-   - Enforces status rule (cannot transition out of `canceled`).
+   - Allows canceled events to be edited or have their status changed again before they start.
    - Returns status `200` with `{ success: true, data: { event } }`.
 4. `DELETE /api/events/:id`:
    - Deletes the event.
@@ -161,5 +161,5 @@ All endpoints under `/api/events` are protected with `authenticate` and `authori
 - `DELETE /api/events/:id` performs a soft delete (`deletedAt = now()`, `status = 'canceled'`).
 - Canceling or soft-deleting an event bulk-cancels all active registrations in the same transaction with `canceledBy = organizer.id`.
 - Soft-deleted events are excluded from all active queries.
-- Edits on canceled or deleted events are blocked.
+- Future canceled events may be edited or restored by their organizer; soft-deleted events remain unavailable.
 - Capacity updates are rejected (`400 Bad Request`) if reduced below the current active registration count.

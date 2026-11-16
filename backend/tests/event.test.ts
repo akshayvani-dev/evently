@@ -492,8 +492,8 @@ describe('Event CRUD Integration Tests', () => {
     });
   });
 
-  describe('Canceled Event Status Rule', () => {
-    it('status cannot move out of canceled once an event is canceled', async () => {
+  describe('Canceled Event Management', () => {
+    it('allows the organizer to edit and change the status of a canceled future event', async () => {
       // Create and cancel event
       const createRes = await request(app)
         .post('/api/v1/events')
@@ -509,26 +509,25 @@ describe('Event CRUD Integration Tests', () => {
       expect(cancelRes.status).toBe(200);
       expect(cancelRes.body.data.event.status).toBe('canceled');
 
-      // Attempt to move back to published via PATCH
-      const unCancelPatchRes = await request(app)
+      // Restore to published and update details via PATCH
+      const restorePatchRes = await request(app)
         .patch(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
-        .send({ status: 'published' });
-      expect(unCancelPatchRes.status).toBe(400);
-      expect(unCancelPatchRes.body.success).toBe(false);
-      expect(unCancelPatchRes.body.message).toMatch(/canceled/i);
+        .send({ status: 'published', title: 'Restored event' });
+      expect(restorePatchRes.status).toBe(200);
+      expect(restorePatchRes.body.data.event.status).toBe('published');
+      expect(restorePatchRes.body.data.event.title).toBe('Restored event');
 
-      // Attempt to move back to draft via PUT
-      const unCancelPutRes = await request(app)
+      // Move back to draft via PUT
+      const draftPutRes = await request(app)
         .put(`/api/v1/events/${eventId}`)
         .set('Cookie', [`accessToken=${tokenAlice}`])
         .send({
           ...sampleEventData,
           status: 'draft',
         });
-      expect(unCancelPutRes.status).toBe(400);
-      expect(unCancelPutRes.body.success).toBe(false);
-      expect(unCancelPutRes.body.message).toMatch(/canceled/i);
+      expect(draftPutRes.status).toBe(200);
+      expect(draftPutRes.body.data.event.status).toBe('draft');
     });
   });
 

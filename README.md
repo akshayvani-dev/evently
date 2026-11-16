@@ -405,7 +405,7 @@ Because cancel and capacity updates take the same lock, counts can never go stal
 
 **Deleting an event** is a soft delete (`deleted_at` set, status `canceled`) with the same bulk cancellation. Deleted events are excluded from every query.
 
-**Updating an event:** only the owner can edit; canceled or deleted events cannot be edited; capacity must be a positive integer and cannot drop below the number of active registrations; the start time cannot be moved into the past.
+**Updating an event:** only the owner can edit; future canceled events can be edited or restored, but soft-deleted events cannot; capacity must be a positive integer and cannot drop below the number of active registrations; the start time cannot be moved into the past.
 
 **Who canceled:** `canceled_by = user_id` means the attendee canceled; any other value means the organizer canceled through an event cancel or delete.
 
