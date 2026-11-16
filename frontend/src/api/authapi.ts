@@ -25,6 +25,8 @@ export function getApiErrorMessage(
   return fallbackMessage;
 }
 
+let currentUserRequest: Promise<AuthResponse> | null = null;
+
 /**
  * Authentication API Service
  * Encapsulates all backend authentication endpoint interactions.
@@ -62,9 +64,12 @@ export const authApi = {
    * Fetches the current authenticated user's session profile.
    * Route: GET /api/v1/auth/me
    */
-  getMe: async (): Promise<AuthResponse> => {
-    const response = await api.get<AuthResponse>('/auth/me');
-    return response.data;
+  getMe: (): Promise<AuthResponse> => {
+    if (currentUserRequest) return currentUserRequest;
+    currentUserRequest = api.get<AuthResponse>('/auth/me')
+      .then((response) => response.data)
+      .finally(() => { currentUserRequest = null; });
+    return currentUserRequest;
   },
 
   /**

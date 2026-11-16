@@ -16,6 +16,79 @@ interface LockedEventRow {
 }
 
 export class EventService {
+  static async listEvents(status: 'all' | 'published' | 'draft' | 'canceled' | 'completed', organizerId?: string) {
+    const now = new Date();
+    await prisma.$executeRaw`
+      UPDATE "events"
+      SET "status" = 'completed'::"EventStatus"
+      WHERE "status" = 'published'::"EventStatus"
+        AND "start_at" <= ${now}
+        AND "deleted_at" IS NULL
+    `;
+
+    const completedIds = status === 'completed'
+      ? await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "events"
+          WHERE "status" = 'completed'::"EventStatus"
+            AND "deleted_at" IS NULL
+        `
+      : null;
+    const events = await prisma.event.findMany({
+      where: {
+        deletedAt: null,
+        ...(organizerId ? { organizerId } : {}),
+        ...(status === 'all'
+          ? {}
+          : status === 'completed'
+            ? { id: { in: completedIds?.map(({ id }) => id) ?? [] } }
+            : { status }),
+      },
+      orderBy: { startAt: 'asc' },
+      include: {
+        organizer: { select: { name: true } },
+        registrations: { where: { status: 'active' }, select: { id: true } },
+      },
+    });
+
+    return events.map(({ organizer, registrations, ...event }) => ({
+      ...event,
+      organizerName: organizer.name,
+      registered: registrations.length,
+    }));
+  }
+  static async getEventById(eventId: string, organizerId?: string) {
+    const now = new Date();
+    await prisma.$executeRaw`
+      UPDATE "events"
+      SET "status" = 'completed'::"EventStatus"
+      WHERE "status" = 'published'::"EventStatus"
+        AND "start_at" <= ${now}
+        AND "deleted_at" IS NULL
+    `;
+
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        deletedAt: null,
+        ...(organizerId ? { organizerId } : {}),
+      },
+      include: {
+        organizer: { select: { name: true } },
+        registrations: { where: { status: 'active' }, select: { id: true } },
+      },
+    });
+
+    if (!event || (!organizerId && event.status !== 'published' && event.status !== 'completed')) {
+      throw new AppError(404, 'Event not found');
+    }
+
+    const { organizer, registrations, ...eventData } = event;
+    return {
+      ...eventData,
+      organizerName: organizer.name,
+      registered: registrations.length,
+    };
+  }
   static async createEvent(
     organizerId: string,
     input: CreateEventInput

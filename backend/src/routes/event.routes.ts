@@ -11,6 +11,11 @@ import {
 
 const router = Router();
 
+// Public event listing defaults to upcoming/published events.
+router.get('/public', EventController.list);
+router.get('/public/:id', EventController.getPublicById);
+router.get('/', authenticate, authorize('organizer'), EventController.listMine);
+router.get('/:id', authenticate, authorize('organizer'), EventController.getById);
 // Attendee: Register for an event
 router.post(
   '/:eventId/registrations',

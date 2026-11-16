@@ -8,6 +8,8 @@ interface FormFieldProps {
   hint?: ReactNode;
   children: ReactNode;
   className?: string;
+  labelClassName?: string;
+  errorClassName?: string;
 }
 
 export function FormField({
@@ -17,6 +19,8 @@ export function FormField({
   hint,
   children,
   className,
+  labelClassName,
+  errorClassName,
 }: FormFieldProps) {
   const errorId = `${id}-error`;
 
@@ -24,7 +28,7 @@ export function FormField({
     <div className={cn('space-y-1.5', className)}>
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-text"
+        className={cn('block text-sm font-medium text-text', labelClassName)}
       >
         {label}
       </label>
@@ -37,7 +41,7 @@ export function FormField({
         <p
           id={errorId}
           role="alert"
-          className="text-xs font-medium text-[#F0786B]"
+          className={cn('text-xs font-medium text-[#F0786B]', errorClassName)}
         >
           {error}
         </p>

@@ -1,6 +1,6 @@
 export type DateFilterOption = 'all' | 'this-week' | 'this-month' | 'next-3-months';
 
-export type EventStatus = 'draft' | 'published' | 'canceled';
+export type EventStatus = 'draft' | 'published' | 'canceled' | 'completed';
 
 export type ComputedBadgeVariant =
   | 'published'
@@ -8,7 +8,8 @@ export type ComputedBadgeVariant =
   | 'few-left'
   | 'full'
   | 'canceled'
-  | 'draft';
+  | 'draft'
+  | 'completed';
 
 export interface Event {
   id: string;

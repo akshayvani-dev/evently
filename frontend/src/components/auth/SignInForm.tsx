@@ -64,7 +64,7 @@ export function SignInForm() {
         localStorage.setItem('isLoggedIn', 'true');
         setSubmittedEmail(values.email);
         setIsSuccess(true);
-        navigate('/dashboard');
+        navigate('/dashboard/events/all', { replace: true });
       }
     } catch (err: unknown) {
       if (!prefersReducedMotion) {

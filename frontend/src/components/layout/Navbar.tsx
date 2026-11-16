@@ -187,7 +187,7 @@ export function Navbar() {
                   className="w-full"
                   onClick={() => {
                     setMobileOpen(false);
-                    navigate(isAuthenticated ? '/dashboard' : '/auth');
+                    navigate(isAuthenticated ? '/dashboard' : '/');
                   }}
                 >
                   {isAuthenticated ? (user?.name || 'Dashboard') : 'Get started'}

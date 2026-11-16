@@ -2,6 +2,7 @@ import { AlertCircle, Ban, CheckCircle2 } from 'lucide-react';
 import type { Event, EventAvailability } from '../../types/event';
 import { cn } from '../../lib/utils';
 import { ProgressBar } from '../ui/ProgressBar';
+import { useAppSelector } from '../../store';
 
 interface SlotsCardProps {
   event: Event;
@@ -10,37 +11,61 @@ interface SlotsCardProps {
 }
 
 export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
+  const role = useAppSelector((state) => state.auth.user?.role);
+  const isOrganizer = role === 'organizer';
   const isCanceled = event.status === 'canceled';
+  const isCompleted = event.status === 'completed';
   const isFull = availability.badgeVariant === 'full';
   const isFewLeft = availability.badgeVariant === 'few-left';
 
-  let stateMessage =
-    'Plenty of places available. Reserve your seat with instant confirmation.';
+  let stateMessage = isOrganizer
+    ? 'This event is published and open for registration.'
+    : 'Plenty of places available. Reserve your seat with instant confirmation.';
   let StateIcon = CheckCircle2;
   let stateToneClass = 'text-[#8FD18A]';
 
-  if (isCanceled) {
-    stateMessage = 'This event has been canceled. Registrations are closed.';
+  if (isOrganizer && event.status === 'draft') {
+    stateMessage = 'This event is a draft and is not open for registration.';
+    StateIcon = AlertCircle;
+    stateToneClass = 'text-[#F5C84B]';
+  } else if (isCanceled) {
+    stateMessage = isOrganizer
+      ? 'This event is canceled. Registration is closed.'
+      : 'This event has been canceled. Registrations are closed.';
     StateIcon = Ban;
     stateToneClass = 'text-[#F0786B]';
+  } else if (isCompleted) {
+    stateMessage = isOrganizer
+      ? 'This event is completed. Registration is closed.'
+      : 'This event has ended. Registration is closed.';
+    StateIcon = Ban;
+    stateToneClass = 'text-[#7DD3C0]';
   } else if (hasStarted) {
-    stateMessage = 'This event has already started. Registration is closed.';
+    stateMessage = isOrganizer
+      ? 'This event has started. Registration is closed.'
+      : 'This event has already started. Registration is closed.';
     StateIcon = Ban;
     stateToneClass = 'text-[#F0786B]';
   } else if (isFull) {
-    stateMessage = 'All seats are taken. This event is at full capacity.';
+    stateMessage = isOrganizer
+      ? 'This event has reached its capacity.'
+      : 'All seats are taken. This event is at full capacity.';
     StateIcon = Ban;
     stateToneClass = 'text-[#F0786B]';
   } else if (isFewLeft) {
-    stateMessage = `Only ${availability.placesRemaining} ${availability.placesRemaining === 1 ? 'place' : 'places'} left — reserve your spot soon.`;
+    stateMessage = isOrganizer
+      ? `Only ${availability.placesRemaining} ${availability.placesRemaining === 1 ? 'place' : 'places'} remain.`
+      : `Only ${availability.placesRemaining} ${availability.placesRemaining === 1 ? 'place' : 'places'} left — reserve your spot soon.`;
     StateIcon = AlertCircle;
     stateToneClass = 'text-[#F5C84B]';
+  } else if (isOrganizer) {
+    stateMessage = `${event.registered} ${event.registered === 1 ? 'person is' : 'people are'} registered for this event.`;
   }
 
   return (
     <section
       aria-labelledby="slots-heading"
-      className="rounded-2xl border border-border bg-surface p-5 sm:p-6 space-y-5"
+      className="space-y-5 rounded-2xl border border-border bg-surface p-5 sm:p-6"
     >
       <h2 id="slots-heading" className="text-base font-semibold text-text">
         Availability
@@ -49,26 +74,24 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
       <div className="grid grid-cols-3 divide-x divide-border/70">
         <div className="pr-4">
           <p className="text-xs text-text-muted">Capacity</p>
-          <p className="mt-1 text-lg font-semibold text-text tabular-nums">
-            {event.capacity}
-          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-text">{event.capacity}</p>
         </div>
         <div className="px-4">
           <p className="text-xs text-text-muted">Registered</p>
-          <p className="mt-1 text-lg font-semibold text-text tabular-nums">
-            {event.registered}
-          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-text">{event.registered}</p>
         </div>
         <div className="pl-4">
           <p className="text-xs text-text-muted">Remaining</p>
           <p
             className={cn(
               'mt-1 text-lg font-semibold tabular-nums',
-              isCanceled || hasStarted || isFull
+              isCanceled || (hasStarted && !isCompleted) || isFull
                 ? 'text-[#F0786B]'
-                : isFewLeft
-                  ? 'text-[#F5C84B]'
-                  : 'text-[#8FD18A]',
+                : isCompleted
+                  ? 'text-[#7DD3C0]'
+                  : isFewLeft
+                    ? 'text-[#F5C84B]'
+                    : 'text-[#8FD18A]',
             )}
           >
             {availability.placesRemaining}
@@ -78,7 +101,7 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
 
       <ProgressBar
         value={availability.percentFilled}
-        variant={hasStarted && !isCanceled ? 'full' : availability.badgeVariant}
+        variant={isCompleted ? 'completed' : hasStarted && !isCanceled ? 'full' : availability.badgeVariant}
         label={`${event.title} seat availability`}
       />
 

@@ -79,6 +79,16 @@ export function getEventAvailability(event: Event, isUserRegistered = false): Ev
     };
   }
 
+  if (event.status === 'completed') {
+    return {
+      placesRemaining: Math.max(0, event.capacity - event.registered),
+      percentFilled,
+      badgeLabel: 'Completed',
+      badgeVariant: 'completed',
+      isDisabled: true,
+    };
+  }
+
   if (event.status === 'draft') {
     return {
       placesRemaining,

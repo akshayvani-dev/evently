@@ -16,6 +16,7 @@ const darkFillColors: Record<ComputedBadgeVariant, string> = {
   full: 'bg-[#F0786B]',
   canceled: 'bg-[#F0786B]/60',
   draft: 'bg-[#A8A094]',
+  completed: 'bg-[#7DD3C0]',
 };
 
 const lightFillColors: Record<ComputedBadgeVariant, string> = {
@@ -25,6 +26,7 @@ const lightFillColors: Record<ComputedBadgeVariant, string> = {
   full: 'bg-[#DC2626]',
   canceled: 'bg-[#DC2626]/60',
   draft: 'bg-[#5C5246]/50',
+  completed: 'bg-[#0F766E]',
 };
 
 export function ProgressBar({

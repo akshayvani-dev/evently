@@ -75,7 +75,7 @@ export function SignUpForm() {
         localStorage.setItem('isLoggedIn', 'true');
         setCreatedAccount({ name: values.name, role: values.role });
         setIsSuccess(true);
-        navigate('/dashboard');
+        navigate('/dashboard/events/all', { replace: true });
       }
     } catch (err: unknown) {
       if (!prefersReducedMotion) {
@@ -127,7 +127,7 @@ export function SignUpForm() {
         <Button
           variant="gradient"
           size="lg"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/dashboard/events/all', { replace: true })}
           className="w-full"
         >
           Go to Dashboard

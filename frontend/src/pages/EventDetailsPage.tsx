@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -8,7 +8,7 @@ import {
   Ticket,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { EVENTS } from '../data/events';
+import type { Event } from '../types/event';
 import { getEventAvailability, isEventStarted } from '../lib/utils';
 import type { ComputedBadgeVariant } from '../types/event';
 import { Container } from '../components/ui/Container';
@@ -17,6 +17,8 @@ import { Button } from '../components/ui/Button';
 import { EventInfo } from '../components/events/EventInfo';
 import { OrganizerCard } from '../components/events/OrganizerCard';
 import { SlotsCard } from '../components/events/SlotsCard';
+import { eventApi } from '../api/eventapi';
+import { getApiErrorMessage } from '../api/authapi';
 
 function getBadgeIcon(variant: ComputedBadgeVariant) {
   switch (variant) {
@@ -30,16 +32,76 @@ function getBadgeIcon(variant: ComputedBadgeVariant) {
   }
 }
 
-export function EventDetailsPage() {
-  const { id } = useParams<{ id: string }>();
+interface EventDetailsPageProps {
+  backTo?: string;
+  dashboardMode?: boolean;
+}
+
+export function EventDetailsPage({
+  backTo = '/#events',
+  dashboardMode = false,
+}: EventDetailsPageProps) {
+  const params = useParams<{ id: string; eventId: string }>();
+  const id = params.id ?? params.eventId;
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [id]);
 
-  const event = EVENTS.find((item) => item.id === id);
+  useEffect(() => {
+    let isMounted = true;
+    setEvent(null);
+    setLoadError(null);
+    setIsLoading(true);
+
+    if (!id) {
+      setLoadError('Event not found.');
+      setIsLoading(false);
+      return () => { isMounted = false; };
+    }
+
+    const request = dashboardMode
+      ? eventApi.getOrganizerEvent(id)
+      : eventApi.getPublicEvent(id);
+
+    request
+      .then((response) => {
+        if (!response.success) throw new Error(response.message || 'Unable to load this event.');
+        if (isMounted) setEvent(response.data.event);
+      })
+      .catch((error: unknown) => {
+        if (isMounted) setLoadError(getApiErrorMessage(error, 'Unable to load this event.'));
+      })
+      .finally(() => { if (isMounted) setIsLoading(false); });
+
+    return () => { isMounted = false; };
+  }, [dashboardMode, id]);
+
+  if (isLoading) {
+    return (
+      <section aria-label="Loading event details" aria-busy="true" className="py-8 sm:py-12">
+        <Container className="space-y-8">
+          <div className="h-5 w-36 animate-pulse rounded bg-[#1A1713]/10 motion-reduce:animate-none" />
+          <div className="space-y-4 border-b border-[#1A1713]/12 pb-8">
+            <div className="h-6 w-24 animate-pulse rounded-lg bg-[#1A1713]/10 motion-reduce:animate-none" />
+            <div className="h-12 max-w-2xl animate-pulse rounded-xl bg-[#1A1713]/10 motion-reduce:animate-none" />
+          </div>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+            <div className="space-y-5 lg:col-span-7">
+              <div className="h-28 animate-pulse rounded-2xl bg-[#1A1713]/10 motion-reduce:animate-none" />
+              <div className="h-36 animate-pulse rounded-2xl bg-[#1A1713]/10 motion-reduce:animate-none" />
+            </div>
+            <div className="h-72 animate-pulse rounded-2xl bg-[#1A1713]/10 motion-reduce:animate-none lg:col-span-5" />
+          </div>
+        </Container>
+      </section>
+    );
+  }
 
   if (!event) {
     return (
@@ -58,13 +120,12 @@ export function EventDetailsPage() {
               Event not found
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-text-muted">
-              The event you are looking for does not exist or may have been
-              removed from the schedule.
+              {loadError ?? 'The event you are looking for does not exist or may have been removed from the schedule.'}
             </p>
             <Button
               variant="gradient"
               size="lg"
-              onClick={() => navigate('/#events')}
+              onClick={() => navigate(backTo)}
               className="mt-7"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -80,16 +141,21 @@ export function EventDetailsPage() {
   const availability = getEventAvailability(event, false);
 
   const isCanceled = event.status === 'canceled';
+  const isCompleted = event.status === 'completed';
   const isFull = availability.badgeVariant === 'full';
   const isRegisterDisabled = availability.isDisabled || hasStarted;
 
-  const badgeVariant: ComputedBadgeVariant =
-    hasStarted && !isCanceled ? 'full' : availability.badgeVariant;
-  const badgeLabel =
-    hasStarted && !isCanceled ? 'Started' : availability.badgeLabel;
+  const badgeVariant: ComputedBadgeVariant = isCompleted
+    ? 'completed'
+    : hasStarted && !isCanceled ? 'full' : availability.badgeVariant;
+  const badgeLabel = isCompleted
+    ? 'Completed'
+    : hasStarted && !isCanceled ? 'Started' : availability.badgeLabel;
 
   const disabledReason = isCanceled
     ? 'Event canceled — registration closed.'
+    : isCompleted
+      ? 'Event completed — registration closed.'
     : hasStarted
       ? 'Event started — registration closed.'
       : isFull
@@ -100,6 +166,11 @@ export function EventDetailsPage() {
     <>
       <Ban className="h-4 w-4" aria-hidden="true" />
       Canceled
+    </>
+  ) : isCompleted ? (
+    <>
+      <Ban className="h-4 w-4" aria-hidden="true" />
+      Completed
     </>
   ) : hasStarted ? (
     <>
@@ -123,7 +194,7 @@ export function EventDetailsPage() {
       <Container className="space-y-8">
         <div>
           <Link
-            to="/#events"
+            to={backTo}
             className="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-[#5C5246] transition-colors hover:text-[#1A1713] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6E9DC]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -188,14 +259,21 @@ export function EventDetailsPage() {
               <EventInfo event={event} />
 
               <div className="border-t border-border/70 pt-5 space-y-2.5">
-                <Button
-                  variant={isRegisterDisabled ? 'outline' : 'gradient'}
-                  size="lg"
-                  disabled={isRegisterDisabled}
-                  className="w-full"
-                >
-                  {registerButtonContent}
-                </Button>
+                {dashboardMode ? (
+                  <Button variant="outline" size="lg" className="w-full" onClick={() => navigate(backTo)}>
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    Back to events
+                  </Button>
+                ) : (
+                  <Button
+                    variant={isRegisterDisabled ? 'outline' : 'gradient'}
+                    size="lg"
+                    disabled={isRegisterDisabled}
+                    className="w-full"
+                  >
+                    {registerButtonContent}
+                  </Button>
+                )}
 
                 {disabledReason ? (
                   <p className="text-xs text-[#F0786B]">{disabledReason}</p>
@@ -207,7 +285,7 @@ export function EventDetailsPage() {
       </Container>
 
       {/* Mobile bottom quick action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+      {!dashboardMode && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <p className="truncate text-xs font-medium text-text-muted">
             {disabledReason ?? 'Reserve your spot'}
@@ -222,7 +300,7 @@ export function EventDetailsPage() {
             {registerButtonContent}
           </Button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

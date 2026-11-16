@@ -16,6 +16,7 @@ enum EventStatus {
   draft
   published
   canceled
+  completed
 }
 
 enum RegistrationStatus {

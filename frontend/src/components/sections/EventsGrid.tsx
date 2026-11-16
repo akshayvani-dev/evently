@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarX2, RotateCcw } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { EVENTS } from '../../data/events';
 import type { DateFilterOption } from '../../types/event';
 import { matchesDateFilter } from '../../lib/utils';
 import { Container } from '../ui/Container';
@@ -10,27 +9,41 @@ import { Button } from '../ui/Button';
 import { EventCardSkeleton } from '../ui/Skeleton';
 import { EventCard } from '../events/EventCard';
 import { SearchFilter } from './SearchFilter';
+import { eventApi } from '../../api/eventapi';
+import { getApiErrorMessage } from '../../api/authapi';
+import type { Event } from '../../types/event';
 
 export function EventsGrid() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
   const [registeredIds, setRegisteredIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsLoading(false);
-    }, prefersReducedMotion ? 150 : 500);
+    let isMounted = true;
+    eventApi.listEvents('published')
+      .then((response) => {
+        if (!response.success) throw new Error(response.message || 'Unable to load events.');
+        if (isMounted) setEvents(response.data.events);
+      })
+      .catch((error: unknown) => {
+        if (isMounted) setLoadError(getApiErrorMessage(error, 'Unable to load events.'));
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
-    return () => window.clearTimeout(timer);
-  }, [prefersReducedMotion]);
+    return () => { isMounted = false; };
+  }, []);
 
   const filteredEvents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return EVENTS.filter((event) => {
+    return events.filter((event) => {
       const matchesDate = matchesDateFilter(event.startAt, dateFilter);
       const matchesQuery =
         !query ||
@@ -41,7 +54,7 @@ export function EventsGrid() {
 
       return matchesDate && matchesQuery;
     });
-  }, [searchQuery, dateFilter]);
+  }, [events, searchQuery, dateFilter]);
 
   const handleToggleRegister = (eventId: string) => {
     setRegisteredIds((prev) => {
@@ -89,6 +102,10 @@ export function EventsGrid() {
             {Array.from({ length: 6 }).map((_, index) => (
               <EventCardSkeleton key={index} />
             ))}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="rounded-2xl border border-[#B42318]/20 bg-white/55 px-6 py-12 text-center text-sm font-medium text-[#991B1B]">
+            {loadError}
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#1A1713]/12 bg-white/50 backdrop-blur-md px-6 py-16 text-center">
