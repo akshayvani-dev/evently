@@ -285,7 +285,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
 | Variable | Description | Example |
 |---|---|---|
-| `VITE_API_URL` | Base URL of the backend API | `http://localhost:5000/api/v1` |
+| `VITE_API_BASE_URL` | Base URL of the backend API | `http://localhost:5000/api/v1` |
 
 Never commit real secrets. Only `.env.example` files belong in the repository.
 

@@ -17,7 +17,8 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+Vite runs at `http://localhost:5173` by default. Configure the API base URL in
+`.env` using `VITE_API_BASE_URL=http://localhost:5000/api/v1`.
 
 ## Build
 

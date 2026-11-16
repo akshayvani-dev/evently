@@ -14,7 +14,7 @@ JWT_ACCESS_SECRET=replace_with_a_secure_random_access_secret_min_32_chars
 JWT_REFRESH_SECRET=replace_with_a_secure_random_refresh_secret_min_32_chars
 ACCESS_TOKEN_EXPIRES_IN=15m
 REFRESH_TOKEN_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=http://localhost:5173
 ```
 
 ## Setup & Running Migrations
@@ -42,7 +42,7 @@ CLIENT_URL=http://localhost:3000
   npm start
   ```
 
-API health check endpoint: `http://localhost:5000/api/health`.
+API health check endpoint: `http://localhost:5000/api/v1/health`.
 
 ## Running Tests
 

@@ -9,7 +9,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   ACCESS_TOKEN_EXPIRES_IN: z.string().default(process.env.JWT_ACCESS_EXPIRES_IN || '15m'),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
-  CLIENT_URL: z.string().default(process.env.CORS_ORIGIN || 'http://localhost:3000'),
+  CLIENT_URL: z.string().default(process.env.CORS_ORIGIN || 'http://localhost:5173'),
 });
 
 const result = envSchema.safeParse(process.env);
