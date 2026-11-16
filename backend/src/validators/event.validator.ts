@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
-export const publicEventListQuerySchema = z.object({
+const eventListPaginationSchema = z.object({
   title: z.string().trim().max(255, 'title cannot exceed 255 characters').optional(),
+  page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const publicEventListQuerySchema = eventListPaginationSchema.extend({
   dateFilter: z.enum(['all', 'this-week', 'this-month', 'next-3-months']).optional(),
+});
+
+export const organizerEventListQuerySchema = eventListPaginationSchema.extend({
+  status: z.enum(['all', 'published', 'draft', 'canceled', 'completed']).default('all'),
 });
 
 const isValidIanaTimezone = (tz: string): boolean => {
@@ -92,7 +101,11 @@ export const patchEventSchema = z
       .min(1, 'title cannot be empty')
       .max(255, 'title cannot exceed 255 characters')
       .optional(),
-    description: z.string().trim().min(1, 'description cannot be empty').optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'description cannot be empty')
+      .optional(),
     startAt: futureDateSchema.optional(),
     timezone: timezoneSchema.optional(),
     location: z
@@ -106,7 +119,7 @@ export const patchEventSchema = z
       .int('capacity must be an integer')
       .positive('capacity must be a positive integer')
       .optional(),
-    status: z.enum(['draft', 'published', 'canceled']).optional(),
+    status: z.enum(['draft', 'published', 'canceled', 'completed']).optional(),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, {
@@ -117,3 +130,10 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export type PatchEventInput = z.infer<typeof patchEventSchema>;
 export type PublicEventListQuery = z.infer<typeof publicEventListQuerySchema>;
+export type OrganizerEventListQuery = z.infer<typeof organizerEventListQuerySchema>;
+export interface EventListFilters {
+  title?: string;
+  dateFilter?: 'all' | 'this-week' | 'this-month' | 'next-3-months';
+  page: number;
+  limit: number;
+}

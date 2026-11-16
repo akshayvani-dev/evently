@@ -17,6 +17,13 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
   const isCompleted = event.status === 'completed';
   const isFull = availability.badgeVariant === 'full';
   const isFewLeft = availability.badgeVariant === 'few-left';
+  const remainingToneClass = isCanceled || (hasStarted && !isCompleted) || isFull
+    ? 'text-[#F0786B]'
+    : isCompleted
+      ? 'text-[#7DD3C0]'
+      : isFewLeft
+        ? 'text-[#F5C84B]'
+        : 'text-[#8FD18A]';
 
   let stateMessage = isOrganizer
     ? 'This event is published and open for registration.'
@@ -65,13 +72,13 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
   return (
     <section
       aria-labelledby="slots-heading"
-      className="space-y-5 rounded-2xl border border-border bg-surface p-5 sm:p-6"
+      className="space-y-3 rounded-2xl border border-border bg-surface/90 p-4 sm:p-5"
     >
       <h2 id="slots-heading" className="text-base font-semibold text-text">
         Availability
       </h2>
 
-      <div className="grid grid-cols-3 divide-x divide-border/70">
+      <div className="grid grid-cols-3 divide-x divide-border">
         <div className="pr-4">
           <p className="text-xs text-text-muted">Capacity</p>
           <p className="mt-1 text-lg font-semibold tabular-nums text-text">{event.capacity}</p>
@@ -83,16 +90,7 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
         <div className="pl-4">
           <p className="text-xs text-text-muted">Remaining</p>
           <p
-            className={cn(
-              'mt-1 text-lg font-semibold tabular-nums',
-              isCanceled || (hasStarted && !isCompleted) || isFull
-                ? 'text-[#F0786B]'
-                : isCompleted
-                  ? 'text-[#7DD3C0]'
-                  : isFewLeft
-                    ? 'text-[#F5C84B]'
-                    : 'text-[#8FD18A]',
-            )}
+            className={cn('mt-1 text-lg font-semibold tabular-nums', remainingToneClass)}
           >
             {availability.placesRemaining}
           </p>
@@ -101,6 +99,7 @@ export function SlotsCard({ event, availability, hasStarted }: SlotsCardProps) {
 
       <ProgressBar
         value={availability.percentFilled}
+        tone="dark"
         variant={isCompleted ? 'completed' : hasStarted && !isCanceled ? 'full' : availability.badgeVariant}
         label={`${event.title} seat availability`}
       />

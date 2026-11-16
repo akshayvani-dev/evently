@@ -3,8 +3,8 @@ import { AppError } from '../errors/AppError';
 import { prisma } from '../lib/prisma';
 import {
   CreateEventInput,
+  EventListFilters,
   PatchEventInput,
-  PublicEventListQuery,
   UpdateEventInput,
 } from '../validators/event.validator';
 
@@ -13,6 +13,7 @@ interface LockedEventRow {
   organizerId: string;
   status: string;
   capacity: number;
+  startAt: Date;
   deletedAt: Date | null;
 }
 
@@ -20,7 +21,7 @@ export class EventService {
   static async listEvents(
     status: 'all' | 'published' | 'draft' | 'canceled' | 'completed',
     organizerId?: string,
-    filters: PublicEventListQuery = {},
+    filters: EventListFilters = { page: 1, limit: 20 },
   ) {
     const now = new Date();
     await prisma.$executeRaw`
@@ -39,37 +40,42 @@ export class EventService {
           ? new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
           : null;
 
-    const completedIds = status === 'completed'
-      ? await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT "id" FROM "events"
-          WHERE "status" = 'completed'::"EventStatus"
-            AND "deleted_at" IS NULL
-        `
-      : null;
-    const events = await prisma.event.findMany({
-      where: {
-        deletedAt: null,
-        ...(organizerId ? { organizerId } : {}),
-        ...(filters.title ? { title: { contains: filters.title, mode: 'insensitive' } } : {}),
-        ...(dateFilterEnd ? { startAt: { gte: now, lte: dateFilterEnd } } : {}),
-        ...(status === 'all'
-          ? {}
-          : status === 'completed'
-            ? { id: { in: completedIds?.map(({ id }) => id) ?? [] } }
-            : { status }),
-      },
-      orderBy: { startAt: 'desc' },
-      include: {
-        organizer: { select: { name: true } },
-        registrations: { where: { status: 'active' }, select: { id: true } },
-      },
-    });
+    const where: Prisma.EventWhereInput = {
+      deletedAt: null,
+      ...(organizerId ? { organizerId } : {}),
+      ...(filters.title ? { title: { contains: filters.title, mode: 'insensitive' } } : {}),
+      ...(dateFilterEnd ? { startAt: { gte: now, lte: dateFilterEnd } } : {}),
+      ...(status === 'all' ? {} : { status }),
+    };
+    const skip = (filters.page - 1) * filters.limit;
+    const [events, total] = await prisma.$transaction([
+      prisma.event.findMany({
+        where,
+        skip,
+        take: filters.limit,
+        orderBy: [{ startAt: 'desc' }, { id: 'desc' }],
+        include: {
+          organizer: { select: { name: true } },
+          registrations: { where: { status: 'active' }, select: { id: true } },
+        },
+      }),
+      prisma.event.count({ where }),
+    ]);
 
-    return events.map(({ organizer, registrations, ...event }) => ({
-      ...event,
-      organizerName: organizer.name,
-      registered: registrations.length,
-    }));
+    return {
+      events: events.map(({ organizer, registrations, ...event }) => ({
+        ...event,
+        organizerName: organizer.name,
+        registered: registrations.length,
+      })),
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages: Math.ceil(total / filters.limit),
+        hasNextPage: skip + events.length < total,
+      },
+    };
   }
   static async getEventById(eventId: string, organizerId?: string) {
     const now = new Date();
@@ -129,9 +135,15 @@ export class EventService {
   ): Promise<Event> {
     return prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<LockedEventRow[]>`
-        SELECT id, "organizerId", status, capacity, "deletedAt"
-        FROM "Event"
-        WHERE id = ${eventId}
+        SELECT
+          "id",
+          "organizer_id" AS "organizerId",
+          "status",
+          "capacity",
+          "start_at" AS "startAt",
+          "deleted_at" AS "deletedAt"
+        FROM "events"
+        WHERE "id" = ${eventId}
         FOR UPDATE
       `;
 
@@ -143,6 +155,10 @@ export class EventService {
 
       if (event.organizerId !== organizerId) {
         throw new AppError(403, 'Forbidden: you do not have permission to manage this event');
+      }
+
+      if (event.startAt.getTime() <= Date.now()) {
+        throw new AppError(400, 'Cannot modify an event after it has started');
       }
 
       // Block edits on canceled or deleted events
@@ -197,9 +213,15 @@ export class EventService {
   ): Promise<Event> {
     return prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<LockedEventRow[]>`
-        SELECT id, "organizerId", status, capacity, "deletedAt"
-        FROM "Event"
-        WHERE id = ${eventId}
+        SELECT
+          "id",
+          "organizer_id" AS "organizerId",
+          "status",
+          "capacity",
+          "start_at" AS "startAt",
+          "deleted_at" AS "deletedAt"
+        FROM "events"
+        WHERE "id" = ${eventId}
         FOR UPDATE
       `;
 
@@ -211,6 +233,10 @@ export class EventService {
 
       if (event.organizerId !== organizerId) {
         throw new AppError(403, 'Forbidden: you do not have permission to manage this event');
+      }
+
+      if (event.startAt.getTime() <= Date.now()) {
+        throw new AppError(400, 'Cannot modify an event after it has started');
       }
 
       // Block edits on canceled or deleted events
@@ -262,9 +288,15 @@ export class EventService {
   static async deleteEvent(eventId: string, organizerId: string): Promise<void> {
     return prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<LockedEventRow[]>`
-        SELECT id, "organizerId", status, capacity, "deletedAt"
-        FROM "Event"
-        WHERE id = ${eventId}
+        SELECT
+          "id",
+          "organizer_id" AS "organizerId",
+          "status",
+          "capacity",
+          "start_at" AS "startAt",
+          "deleted_at" AS "deletedAt"
+        FROM "events"
+        WHERE "id" = ${eventId}
         FOR UPDATE
       `;
 
@@ -276,6 +308,10 @@ export class EventService {
 
       if (event.organizerId !== organizerId) {
         throw new AppError(403, 'Forbidden: you do not have permission to manage this event');
+      }
+
+      if (event.startAt.getTime() <= Date.now()) {
+        throw new AppError(400, 'Cannot modify an event after it has started');
       }
 
       // Soft delete: set deletedAt, status = canceled

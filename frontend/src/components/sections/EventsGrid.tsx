@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarX2, RotateCcw } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { DateFilterOption } from '../../types/event';
@@ -10,7 +10,11 @@ import { EventCard } from '../events/EventCard';
 import { SearchFilter } from './SearchFilter';
 import { eventApi } from '../../api/eventapi';
 import { getApiErrorMessage } from '../../api/authapi';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import type { Event } from '../../types/event';
+
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function EventsGrid() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,30 +22,55 @@ export function EventsGrid() {
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
   const [registeredIds, setRegisteredIds] = useState<ReadonlySet<string>>(() => new Set());
   const [events, setEvents] = useState<Event[]>([]);
+  const [totalEvents, setTotalEvents] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [nextPage, setNextPage] = useState(2);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const loadMoreErrorRef = useRef(false);
 
   const prefersReducedMotion = useReducedMotion();
+  const queryKey = JSON.stringify([debouncedSearchQuery, dateFilter]);
+  const queryKeyRef = useRef(queryKey);
+  queryKeyRef.current = queryKey;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(
       () => setDebouncedSearchQuery(searchQuery.trim()),
-      300,
+      SEARCH_DEBOUNCE_MS,
     );
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
 
   useEffect(() => {
     let isMounted = true;
+    loadingMoreRef.current = false;
+    loadMoreErrorRef.current = false;
     setIsLoading(true);
+    setIsLoadingMore(false);
     setLoadError(null);
-    eventApi.listEvents('published', {
+    setLoadMoreError(null);
+    setEvents([]);
+    setTotalEvents(0);
+    setNextPage(2);
+    setHasNextPage(false);
+    eventApi.listEvents({
       title: debouncedSearchQuery,
       dateFilter,
+      page: 1,
+      limit: PAGE_SIZE,
     })
       .then((response) => {
         if (!response.success) throw new Error(response.message || 'Unable to load events.');
-        if (isMounted) setEvents(response.data.events);
+        if (isMounted) {
+          setEvents(response.data.events);
+          setTotalEvents(response.data.pagination.total);
+          setNextPage(response.data.pagination.page + 1);
+          setHasNextPage(response.data.pagination.hasNextPage && response.data.events.length > 0);
+        }
       })
       .catch((error: unknown) => {
         if (isMounted) setLoadError(getApiErrorMessage(error, 'Unable to load events.'));
@@ -53,7 +82,56 @@ export function EventsGrid() {
     return () => { isMounted = false; };
   }, [dateFilter, debouncedSearchQuery]);
 
-  const filteredEvents = events;
+  const loadMore = useCallback(() => {
+    if (!hasNextPage || isLoading || loadingMoreRef.current || loadMoreErrorRef.current) return;
+
+    const requestKey = queryKey;
+    const requestedPage = nextPage;
+    if (!Number.isInteger(requestedPage) || requestedPage < 2) return;
+
+    loadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    eventApi.listEvents({
+      title: debouncedSearchQuery,
+      dateFilter,
+      page: requestedPage,
+      limit: PAGE_SIZE,
+    })
+      .then((response) => {
+        if (!response.success) throw new Error(response.message || 'Unable to load more events.');
+        if (queryKeyRef.current !== requestKey) return;
+
+        const { events: nextEvents, pagination } = response.data;
+        if (pagination.page !== requestedPage) {
+          throw new Error('Received an unexpected event page.');
+        }
+
+        setEvents((currentEvents) => {
+          const currentIds = new Set(currentEvents.map((event) => event.id));
+          return [...currentEvents, ...nextEvents.filter((event) => !currentIds.has(event.id))];
+        });
+        setTotalEvents(pagination.total);
+        setNextPage(pagination.page + 1);
+        setHasNextPage(pagination.hasNextPage && nextEvents.length > 0);
+      })
+      .catch((error: unknown) => {
+        if (queryKeyRef.current === requestKey) {
+          loadMoreErrorRef.current = true;
+          setLoadMoreError(getApiErrorMessage(error, 'Unable to load more events.'));
+        }
+      })
+      .finally(() => {
+        if (queryKeyRef.current === requestKey) {
+          loadingMoreRef.current = false;
+          setIsLoadingMore(false);
+        }
+      });
+  }, [dateFilter, debouncedSearchQuery, hasNextPage, isLoading, nextPage, queryKey]);
+
+  const sentinelRef = useInfiniteScroll(
+    loadMore,
+    hasNextPage && !isLoading && !isLoadingMore && !loadMoreError,
+  );
 
   const handleToggleRegister = (eventId: string) => {
     setRegisteredIds((prev) => {
@@ -85,7 +163,7 @@ export function EventsGrid() {
           <p className="text-sm text-[#5C5246] tabular-nums shrink-0">
             {isLoading
               ? 'Loading events...'
-              : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'event' : 'events'} shown`}
+              : `Showing ${events.length} of ${totalEvents} events`}
           </p>
         </div>
 
@@ -106,7 +184,7 @@ export function EventsGrid() {
           <div role="alert" className="rounded-2xl border border-[#B42318]/20 bg-white/55 px-6 py-12 text-center text-sm font-medium text-[#991B1B]">
             {loadError}
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#1A1713]/12 bg-white/50 backdrop-blur-md px-6 py-16 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1A1713]/8 text-[#5C5246]">
               <CalendarX2 className="h-6 w-6" aria-hidden="true" />
@@ -129,7 +207,7 @@ export function EventsGrid() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredEvents.map((event, index) => (
+            {events.map((event, index) => (
               <motion.div
                 key={event.id}
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
@@ -150,6 +228,32 @@ export function EventsGrid() {
               </motion.div>
             ))}
           </div>
+        )}
+        {!isLoading && !loadError && events.length > 0 && (
+          <>
+            {hasNextPage && <div ref={sentinelRef} className="h-1" aria-hidden="true" />}
+            {isLoadingMore && (
+              <p className="py-2 text-center text-sm text-[#5C5246]" role="status">
+                Loading more events...
+              </p>
+            )}
+            {loadMoreError && (
+              <div role="alert" className="flex items-center justify-center gap-3 py-2 text-sm text-[#991B1B]">
+                <span>{loadMoreError}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    loadMoreErrorRef.current = false;
+                    setLoadMoreError(null);
+                    loadMore();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </Container>
     </section>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface DatePickerProps {
   id: string;
@@ -8,6 +9,8 @@ interface DatePickerProps {
   minDate?: string;
   hasError?: boolean;
   describedBy?: string;
+  disableMotion?: boolean;
+  tone?: 'light' | 'dark';
 }
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -26,7 +29,16 @@ function parseDateValue(value: string): Date | null {
     : null;
 }
 
-export function DatePicker({ id, value, onChange, minDate, hasError, describedBy }: DatePickerProps) {
+export function DatePicker({
+  id,
+  value,
+  onChange,
+  minDate,
+  hasError,
+  describedBy,
+  disableMotion = false,
+  tone = 'light',
+}: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = parseDateValue(value);
   const minimum = parseDateValue(minDate ?? '') ?? new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
@@ -58,6 +70,10 @@ export function DatePicker({ id, value, onChange, minDate, hasError, describedBy
   }, [visibleMonth]);
 
   const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(visibleMonth);
+  const isDark = tone === 'dark';
+  const triggerStateClass = hasError
+    ? isDark ? 'border-[#F0786B]' : 'border-[#B42318]'
+    : isDark ? 'border-border focus-visible:border-primary' : 'border-[#1A1713]/15 focus-visible:border-[#9A340A]';
   const displayValue = selected
     ? new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }).format(selected)
     : 'Choose a date';
@@ -72,31 +88,55 @@ export function DatePicker({ id, value, onChange, minDate, hasError, describedBy
         aria-describedby={describedBy}
         aria-invalid={hasError}
         onClick={() => setOpen((current) => !current)}
-        className={`flex h-11 w-full items-center justify-between gap-3 rounded-xl border bg-white/70 px-3.5 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-[#9A340A]/30 ${hasError ? 'border-[#B42318]' : 'border-[#1A1713]/15 focus-visible:border-[#9A340A]'}`}
+        className={cn(
+          'flex h-11 w-full items-center justify-between gap-3 rounded-xl border px-3.5 text-left text-sm outline-none focus-visible:ring-2',
+          !disableMotion && 'transition',
+          isDark ? 'bg-surface-raised text-text focus-visible:ring-primary/30' : 'bg-white/70 shadow-sm focus-visible:ring-[#9A340A]/30',
+          triggerStateClass,
+        )}
       >
-        <span className={selected ? 'text-[#1A1713]' : 'text-[#74695E]'}>{displayValue}</span>
-        <CalendarDays className="h-4 w-4 text-[#5C5246]" aria-hidden="true" />
+        <span className={selected ? (isDark ? 'text-text' : 'text-[#1A1713]') : (isDark ? 'text-text-muted' : 'text-[#74695E]')}>
+          {displayValue}
+        </span>
+        <CalendarDays className={cn('h-4 w-4', isDark ? 'text-text-muted' : 'text-[#5C5246]')} aria-hidden="true" />
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Choose event date" className="absolute left-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-3rem))] rounded-xl border border-[#1A1713]/12 bg-white p-3 text-[#1A1713] shadow-[0_18px_50px_rgba(0,0,0,0.2)]">
+        <div
+          role="dialog"
+          aria-label="Choose event date"
+          className={cn(
+            'absolute left-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-3rem))] rounded-xl border p-3 shadow-[0_18px_50px_rgba(0,0,0,0.2)]',
+            isDark ? 'border-border bg-surface text-text' : 'border-[#1A1713]/12 bg-white text-[#1A1713]',
+          )}
+        >
           <div className="mb-3 flex items-center justify-between">
             <button
               type="button"
               aria-label="Previous month"
               onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4A4238] hover:bg-[#1A1713]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9A340A]"
+              className={cn(
+                'inline-flex h-9 w-9 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2',
+                isDark ? 'text-text-muted hover:bg-surface-raised focus-visible:ring-primary' : 'text-[#4A4238] hover:bg-[#1A1713]/5 focus-visible:ring-[#9A340A]',
+              )}
             ><ChevronLeft className="h-4 w-4" aria-hidden="true" /></button>
             <p className="text-sm font-semibold" aria-live="polite">{monthLabel}</p>
             <button
               type="button"
               aria-label="Next month"
               onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4A4238] hover:bg-[#1A1713]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9A340A]"
+              className={cn(
+                'inline-flex h-9 w-9 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2',
+                isDark ? 'text-text-muted hover:bg-surface-raised focus-visible:ring-primary' : 'text-[#4A4238] hover:bg-[#1A1713]/5 focus-visible:ring-[#9A340A]',
+              )}
             ><ChevronRight className="h-4 w-4" aria-hidden="true" /></button>
           </div>
           <div role="grid" aria-label={monthLabel} className="grid grid-cols-7 gap-1 text-center">
-            {WEEKDAYS.map((weekday) => <div key={weekday} role="columnheader" className="py-2 text-xs font-medium text-[#5C5246]">{weekday}</div>)}
+            {WEEKDAYS.map((weekday) => (
+              <div key={weekday} role="columnheader" className={cn('py-2 text-xs font-medium', isDark ? 'text-text-muted' : 'text-[#5C5246]')}>
+                {weekday}
+              </div>
+            ))}
             {days.map((day, index) => {
               if (day === null) return <span key={`blank-${index}`} aria-hidden="true" />;
               const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
@@ -111,7 +151,16 @@ export function DatePicker({ id, value, onChange, minDate, hasError, describedBy
                   aria-pressed={isSelected}
                   disabled={isDisabled}
                   onClick={() => { onChange(dateValue); setOpen(false); }}
-                  className={`h-9 rounded-lg text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9A340A] disabled:cursor-not-allowed disabled:text-[#A8A094]/60 ${isSelected ? 'bg-[#9A340A] font-semibold text-white' : 'text-[#1A1713] hover:bg-[#1A1713]/8'}`}
+                  className={cn(
+                    'h-9 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed',
+                    !disableMotion && 'transition',
+                    isDark
+                      ? 'focus-visible:ring-primary disabled:text-text-muted/40'
+                      : 'focus-visible:ring-[#9A340A] disabled:text-[#A8A094]/60',
+                    isSelected
+                      ? isDark ? 'bg-primary font-semibold text-[#0F0E0C]' : 'bg-[#9A340A] font-semibold text-white'
+                      : isDark ? 'text-text hover:bg-surface-raised' : 'text-[#1A1713] hover:bg-[#1A1713]/8',
+                  )}
                 >
                   {day}
                 </button>

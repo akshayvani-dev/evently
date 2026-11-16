@@ -14,6 +14,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { Overview } from '../pages/dashboard/Overview';
 import { EventsList } from '../pages/dashboard/EventsList';
 import { CreateEvent } from '../pages/dashboard/CreateEvent';
+import { EditEvent } from '../pages/dashboard/EditEvent';
 import { NotFound } from '../pages/dashboard/NotFound';
 import { smoothScrollTo } from '../lib/utils';
 import { useAppSelector } from '../store';
@@ -72,6 +73,9 @@ export function AppRouter() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard/events/:eventId" element={<DashboardEventDetailsRoute />}>
           <Route index element={<EventDetailsPage />} />
+          <Route element={<OrganizerRoute />}>
+            <Route path="edit" element={<EditEvent />} />
+          </Route>
         </Route>
         <Route element={<OrganizerRoute />}>
           <Route path="/dashboard" element={<DashboardLayout />}>

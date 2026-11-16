@@ -114,6 +114,71 @@ describe('Event CRUD Integration Tests', () => {
         .toEqual(['Later Event', 'Earlier Event']);
     });
 
+    it('paginates public events and applies the default page size', async () => {
+      await createPublishedEvent(
+        'Earlier Event',
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+      await createPublishedEvent(
+        'Later Event',
+        new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+
+      const firstPage = await request(app).get('/api/v1/events/public');
+      const secondPage = await request(app)
+        .get('/api/v1/events/public')
+        .query({ page: 2, limit: 1 });
+
+      expect(firstPage.body.data.pagination).toMatchObject({
+        page: 1,
+        limit: 20,
+        total: 2,
+        totalPages: 1,
+        hasNextPage: false,
+      });
+      expect(secondPage.body.data.events.map((event: { title: string }) => event.title))
+        .toEqual(['Earlier Event']);
+      expect(secondPage.body.data.pagination).toMatchObject({
+        page: 2,
+        limit: 1,
+        total: 2,
+        totalPages: 2,
+        hasNextPage: false,
+      });
+    });
+
+    it('paginates organizer events by the requested status', async () => {
+      await createPublishedEvent(
+        'Published Event',
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      );
+
+      const res = await request(app)
+        .get('/api/v1/events')
+        .set('Cookie', [`accessToken=${tokenAlice}`])
+        .query({ status: 'published', page: 1, limit: 1 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.events).toHaveLength(1);
+      expect(res.body.data.events[0].title).toBe('Published Event');
+      expect(res.body.data.pagination).toMatchObject({
+        page: 1,
+        limit: 1,
+        total: 1,
+        totalPages: 1,
+        hasNextPage: false,
+      });
+    });
+
+    it('rejects invalid pagination values', async () => {
+      const res = await request(app)
+        .get('/api/v1/events/public')
+        .query({ page: 0, limit: 101 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
     it('filters published events by a case-insensitive title substring', async () => {
       await createPublishedEvent(
         'Community Design Meetup',
@@ -388,6 +453,31 @@ describe('Event CRUD Integration Tests', () => {
       expect(res.body.data.event.description).toBe(sampleEventData.description);
       expect(res.body.data.event.timezone).toBe(sampleEventData.timezone);
       expect(res.body.data.event.location).toBe(sampleEventData.location);
+    });
+
+    it('PATCH allows the completed status', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/events/${eventId}`)
+        .set('Cookie', [`accessToken=${tokenAlice}`])
+        .send({ status: 'completed' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.event.status).toBe('completed');
+    });
+
+    it('PATCH rejects changes after the event has started', async () => {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { startAt: new Date(Date.now() - 1000) },
+      });
+
+      const res = await request(app)
+        .patch(`/api/v1/events/${eventId}`)
+        .set('Cookie', [`accessToken=${tokenAlice}`])
+        .send({ title: 'Too late to edit' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/after it has started/i);
     });
 
     it('PATCH fails when an empty body is sent', async () => {

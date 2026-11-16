@@ -13,6 +13,7 @@ export type ComputedBadgeVariant =
 
 export interface Event {
   id: string;
+  organizerId: string;
   title: string;
   description: string;
   startAt: string;

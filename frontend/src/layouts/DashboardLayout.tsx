@@ -7,6 +7,7 @@ import { Sidebar } from '../components/dashboard/Sidebar';
 function getPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Overview';
   if (pathname.endsWith('/events/create')) return 'Create event';
+  if (pathname.endsWith('/edit')) return 'Edit event';
   if (pathname.endsWith('/events/active')) return 'Active events';
   if (pathname.endsWith('/events/draft')) return 'Draft events';
   if (pathname.endsWith('/events/canceled')) return 'Canceled events';

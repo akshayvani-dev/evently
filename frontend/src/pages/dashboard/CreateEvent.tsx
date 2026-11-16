@@ -102,11 +102,11 @@ export function CreateEvent() {
     }
   };
 
-  const inputClass = 'w-full rounded-xl border border-[#1A1713]/15 bg-white/70 px-3.5 py-3 text-sm text-[#1A1713] placeholder:text-[#74695E] shadow-sm outline-none transition focus-visible:border-[#9A340A] focus-visible:ring-2 focus-visible:ring-[#9A340A]/25';
+  const inputClass = 'w-full rounded-xl border border-border bg-surface-raised px-3.5 py-3 text-sm text-text placeholder:text-text-muted/70 shadow-sm outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25';
   const timeError = errors.time?.message;
 
   return (
-    <section aria-labelledby="create-event-title" className="w-full">
+    <section aria-labelledby="create-event-title" className="w-full text-text">
       <Link to="/dashboard/events/all" className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-medium text-[#5C5246] hover:text-[#1A1713] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to events
@@ -116,56 +116,56 @@ export function CreateEvent() {
         <p className="mt-2 text-sm text-[#5C5246]">Add the key details for your event. You can keep it as a draft or publish it.</p>
       </header>
 
-      <form onSubmit={handleSubmit(submit)} noValidate className="rounded-2xl border border-[#1A1713]/12 bg-white/60 p-5 shadow-[0_20px_60px_rgba(35,22,14,0.12)] backdrop-blur-md sm:p-7">
+      <form onSubmit={handleSubmit(submit)} noValidate className="w-full rounded-2xl border border-border bg-surface/90 p-5 sm:p-7">
         <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-          <FormField id="event-title" label="Event title" error={errors.title?.message} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]">
+          <FormField id="event-title" label="Event title" error={errors.title?.message} errorClassName="text-[#F0786B]" labelClassName="text-text">
             <input id="event-title" maxLength={255} autoComplete="off" placeholder="e.g. Creative Futures Summit" aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? 'event-title-error' : undefined} className={inputClass} {...register('title')} />
           </FormField>
 
-          <FormField id="event-location" label="Location" error={errors.location?.message} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]">
+          <FormField id="event-location" label="Location" error={errors.location?.message} errorClassName="text-[#F0786B]" labelClassName="text-text">
             <input id="event-location" maxLength={255} placeholder="Venue or city" aria-invalid={Boolean(errors.location)} aria-describedby={errors.location ? 'event-location-error' : undefined} className={inputClass} {...register('location')} />
           </FormField>
 
-          <FormField id="event-date" label="Date" error={errors.date?.message} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]">
+          <FormField id="event-date" label="Date" error={errors.date?.message} errorClassName="text-[#F0786B]" labelClassName="text-text">
             <DatePicker
               id="event-date"
               value={selectedDate || ''}
               minDate={todayValue}
               hasError={Boolean(errors.date)}
               describedBy={errors.date ? 'event-date-error' : undefined}
+              tone="dark"
               onChange={(date) => setValue('date', date, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
             />
           </FormField>
 
-          <FormField id="event-time" label="Start time" error={timeError} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]">
+          <FormField id="event-time" label="Start time" error={timeError} errorClassName="text-[#F0786B]" labelClassName="text-text">
             <input id="event-time" type="time" aria-invalid={Boolean(errors.time)} aria-describedby={errors.time ? 'event-time-error' : undefined} className={inputClass} {...register('time')} />
           </FormField>
 
-          <div className="sm:col-span-2 -mt-2 text-xs text-[#5C5246]">
-            Event time uses your local timezone: <span className="font-medium text-[#3F372E]">{localTimezone}</span>
+          <div className="sm:col-span-2 -mt-2 text-xs text-text-muted">
+            Event time uses your local timezone: <span className="font-medium text-text">{localTimezone}</span>
           </div>
 
-          <FormField id="event-capacity" label="Capacity" error={errors.capacity?.message} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]">
+          <FormField id="event-capacity" label="Capacity" error={errors.capacity?.message} errorClassName="text-[#F0786B]" labelClassName="text-text">
             <input id="event-capacity" type="number" min={1} step={1} placeholder="100" aria-invalid={Boolean(errors.capacity)} aria-describedby={errors.capacity ? 'event-capacity-error' : undefined} className={inputClass} {...register('capacity', { valueAsNumber: true })} />
           </FormField>
 
-          <FormField id="event-status" label="Status" labelClassName="text-[#1A1713]">
+          <FormField id="event-status" label="Status" labelClassName="text-text">
             <select id="event-status" className={inputClass} {...register('status')}>
               <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="canceled">Canceled</option>
+              <option value="published">Publish</option>
             </select>
           </FormField>
 
-          <FormField id="event-description" label="Description" error={errors.description?.message} errorClassName="text-[#991B1B]" labelClassName="text-[#1A1713]" className="sm:col-span-2">
+          <FormField id="event-description" label="Description" error={errors.description?.message} errorClassName="text-[#F0786B]" labelClassName="text-text" className="sm:col-span-2">
             <textarea id="event-description" rows={3} maxLength={DESCRIPTION_MAX_LENGTH} placeholder="Tell guests what to expect" aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? 'event-description-error' : undefined} className={`${inputClass} resize-y`} {...register('description')} />
-            <p className="text-right text-xs tabular-nums text-[#5C5246]" aria-live="polite">{descriptionValue.length}/{DESCRIPTION_MAX_LENGTH}</p>
+            <p className="text-right text-xs tabular-nums text-text-muted" aria-live="polite">{descriptionValue.length}/{DESCRIPTION_MAX_LENGTH}</p>
           </FormField>
         </div>
 
-        {requestError && <p role="alert" className="mt-5 rounded-xl border border-[#B42318]/20 bg-[#B42318]/8 px-4 py-3 text-sm font-medium text-[#991B1B]">{requestError}</p>}
-        <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[#1A1713]/10 pt-6 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" size="md" className="border-[#1A1713]/15 bg-white/35 text-[#3F372E]" onClick={() => navigate('/dashboard/events/all')}>Cancel</Button>
+        {requestError && <p role="alert" className="mt-5 rounded-xl border border-[#F0786B]/20 bg-[#F0786B]/10 px-4 py-3 text-sm font-medium text-[#F0786B]">{requestError}</p>}
+        <div className="mt-8 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" size="md" className="border-border bg-surface-raised text-text hover:bg-surface" onClick={() => navigate('/dashboard/events/all')}>Cancel</Button>
           <Button type="submit" variant="gradient" size="md" disabled={isSubmitting}>
             {isSubmitting && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Creating...' : 'Create event'}

@@ -10,6 +10,7 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   size?: ButtonSize;
   children: ReactNode;
   className?: string;
+  disableMotion?: boolean;
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -37,11 +38,12 @@ export function Button({
   children,
   className,
   disabled,
+  disableMotion = false,
   type = 'button',
   ...props
 }: ButtonProps) {
   const prefersReducedMotion = useReducedMotion();
-  const allowMotion = !disabled && !prefersReducedMotion;
+  const allowMotion = !disableMotion && !disabled && !prefersReducedMotion;
 
   return (
     <motion.button
@@ -49,9 +51,10 @@ export function Button({
       disabled={disabled}
       whileHover={allowMotion ? { y: -1 } : undefined}
       whileTap={allowMotion ? { scale: 0.98 } : undefined}
-      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      transition={allowMotion ? { duration: 0.15, ease: [0.16, 1, 0.3, 1] } : undefined}
       className={cn(
-        'inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150',
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer',
+        !disableMotion && 'transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:cursor-not-allowed disabled:opacity-50',
         variantClasses[variant],

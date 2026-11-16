@@ -45,9 +45,10 @@ export function EventCard({
 }: EventCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
-  const role = useAppSelector((state) => state.auth.user?.role);
+  const user = useAppSelector((state) => state.auth.user);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
-  const isOrganizer = role === "organizer";
+  const isOrganizer = user?.role === "organizer";
+  const isEventOwner = isOrganizer && user?.id === event.organizerId;
 
   const availability = getEventAvailability(event, isRegistered);
   const { dateLabel, timeLabel } = formatEventDate(
@@ -68,7 +69,7 @@ export function EventCard({
       : `${availability.placesRemaining} of ${event.capacity} places left`;
 
   const handleOpenDetails = () => {
-    navigate(isAuthenticated
+    navigate(isAuthenticated && (!isOrganizer || isEventOwner)
       ? `/dashboard/events/${event.id}`
       : `/event-details/${event.id}`);
   };
@@ -117,7 +118,7 @@ export function EventCard({
           variant={availability.badgeVariant}
           icon={getBadgeIcon(availability.badgeVariant)}
         >
-          {isOrganizer
+          {isEventOwner
             ? event.status[0].toUpperCase() + event.status.slice(1)
             : availability.badgeLabel}
         </Badge>
@@ -165,7 +166,7 @@ export function EventCard({
               )}
             >
               <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {isOrganizer
+              {isEventOwner
                 ? `${event.registered} registered · ${availability.placesRemaining} places left`
                 : placesText}
             </span>
@@ -181,7 +182,7 @@ export function EventCard({
           />
         </div>
 
-        {isOrganizer ? (
+        {isEventOwner ? (
           <Button
             variant="outline"
             size="md"
@@ -194,7 +195,7 @@ export function EventCard({
           >
             Manage
           </Button>
-        ) : (
+        ) : isOrganizer ? null : (
           <Button
             variant={
               isRegistered
