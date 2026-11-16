@@ -206,6 +206,35 @@ describe('Auth Integration Tests', () => {
       expect(newRecord?.revokedAt).toBeNull();
     });
 
+    it('should allow only one concurrent refresh to rotate a token', async () => {
+      const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
+      const initialRefreshToken = getCookieValue(signupRes, 'refreshToken')!;
+
+      const refreshResponses = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          request(app)
+            .post('/api/v1/auth/refresh')
+            .set('Cookie', [`refreshToken=${initialRefreshToken}`]),
+        ),
+      );
+
+      expect(refreshResponses.filter((response) => response.status === 200)).toHaveLength(1);
+      expect(refreshResponses.filter((response) => response.status === 401)).toHaveLength(4);
+      expect(
+        refreshResponses
+          .filter((response) => response.status === 401)
+          .every((response) => /reuse detected/i.test(response.body.message)),
+      ).toBe(true);
+
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { email: testUser.email },
+      });
+      const activeRefreshTokens = await prisma.refreshToken.count({
+        where: { userId: user.id, revokedAt: null },
+      });
+      expect(activeRefreshTokens).toBe(0);
+    });
+
     it('should detect reuse of a revoked refresh token, revoke all tokens, and return 401', async () => {
       const signupRes = await request(app).post('/api/v1/auth/signup').send(testUser);
       const initialRefreshToken = getCookieValue(signupRes, 'refreshToken')!;
