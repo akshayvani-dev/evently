@@ -1,165 +1,189 @@
 # Evently Backend
 
-Backend for Evently, built with Node.js, Express, TypeScript, Prisma, and PostgreSQL.
+The Evently backend provides the REST API for event discovery, organizer event
+management, attendee registration, and authentication. It is built with
+Node.js, Express, TypeScript, Prisma, and PostgreSQL.
+
+## Requirements
+
+- Node.js and npm
+- PostgreSQL
+
+## Local Setup
+
+Create a PostgreSQL database, then from `backend/` install dependencies:
+
+```sh
+npm install
+```
+
+Copy `.env.example` to `.env`. Set `DATABASE_URL` and replace both JWT secret
+values with independent random secrets of at least 32 characters. For the
+default Vite development server, keep `CLIENT_URL=http://localhost:5173`.
+
+Generate the Prisma client and apply migrations:
+
+```sh
+npm run prisma:generate
+npm run prisma:migrate
+```
+
+`npm run prisma:migrate` uses `prisma migrate dev` and is intended for local
+development. To apply committed migrations in a deployment, use:
+
+```sh
+npx prisma migrate deploy
+```
+
+Start the API:
+
+```sh
+npm run dev
+```
+
+The API listens on `http://localhost:5000` by default. Check
+`http://localhost:5000/api/v1/health` for service health.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and configure the following variables:
+| Variable | Purpose | Default/example |
+|---|---|---|
+| `NODE_ENV` | Runtime environment | `development` |
+| `PORT` | HTTP port | `5000` |
+| `DATABASE_URL` | PostgreSQL connection string | See `.env.example` |
+| `JWT_ACCESS_SECRET` | Access-token signing key; at least 32 characters | Required |
+| `JWT_REFRESH_SECRET` | Refresh-token signing key; use a different key from the access secret | Required |
+| `ACCESS_TOKEN_EXPIRES_IN` | Access-token lifetime | `15m` |
+| `REFRESH_TOKEN_EXPIRES_IN` | Refresh-token lifetime | `7d` |
+| `CLIENT_URL` | Exact frontend origin allowed by credentialed CORS | `http://localhost:5173` |
 
-```env
-NODE_ENV=development
-PORT=5000
-DATABASE_URL="postgresql://postgres:password@localhost:5432/evently?schema=public"
-JWT_ACCESS_SECRET=replace_with_a_secure_random_access_secret_min_32_chars
-JWT_REFRESH_SECRET=replace_with_a_secure_random_refresh_secret_min_32_chars
-ACCESS_TOKEN_EXPIRES_IN=15m
-REFRESH_TOKEN_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:5173
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Run the API with `tsx watch` |
+| `npm run build` | Compile TypeScript into `dist/` |
+| `npm start` | Run the compiled server |
+| `npm test` | Run Jest/Supertest integration tests |
+| `npm run prisma:generate` | Generate the Prisma client |
+| `npm run prisma:migrate` | Create/apply development migrations |
+| `npm run prisma:studio` | Open Prisma Studio |
+
+## API
+
+All API routes are prefixed with `/api/v1`. Successful responses use
+`{ "success": true, "data": ... }`; errors use
+`{ "success": false, "message": "...", "errors": ... }`.
+
+Paginated list responses put pagination metadata under `data.pagination`:
+
+```json
+{
+  "page": 1,
+  "limit": 20,
+  "total": 42,
+  "totalPages": 3,
+  "hasNextPage": true
+}
 ```
 
-## Setup & Running Migrations
+### Authentication
 
-1. **Install dependencies**:
-   ```sh
-   npm install
-   ```
+| Method | Endpoint | Access |
+|---|---|---|
+| `POST` | `/api/v1/auth/signup` | Public |
+| `POST` | `/api/v1/auth/signin` | Public |
+| `POST` | `/api/v1/auth/refresh` | Refresh-token cookie |
+| `POST` | `/api/v1/auth/logout` | Public; clears session cookies |
+| `GET` | `/api/v1/auth/me` | Authenticated |
 
-2. **Generate Prisma client and run database migrations**:
-   ```sh
-   npm run prisma:generate
-   npm run prisma:migrate
-   ```
+Access and refresh tokens are sent as HTTP-only cookies, not in response
+bodies. The refresh cookie is scoped to `/api/v1/auth`; cookies use `SameSite=Lax`
+and are `Secure` in production. Refresh tokens are stored as SHA-256 hashes and
+rotated transactionally. Reuse of a revoked token triggers revocation of the
+user's active refresh tokens. Signup, signin, and refresh are rate-limited to
+20 requests per IP per 15 minutes; the limiter is skipped in test mode.
 
-## Running the Application
+### Events
 
-- **Development mode** (with tsx hot-reloading):
-  ```sh
-  npm run dev
-  ```
-- **Production build & start**:
-  ```sh
-  npm run build
-  npm start
-  ```
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| `GET` | `/api/v1/events/public` | Public (optional authentication) | List published events |
+| `GET` | `/api/v1/events/public/:id` | Public (optional authentication) | View public event details |
+| `GET` | `/api/v1/events?status=&title=&page=&limit=` | Organizer | List the organizer's events |
+| `GET` | `/api/v1/events/:id` | Organizer (owner) | View an owned event |
+| `POST` | `/api/v1/events` | Organizer | Create an event |
+| `PUT` | `/api/v1/events/:id` | Organizer (owner) | Replace event details |
+| `PATCH` | `/api/v1/events/:id` | Organizer (owner) | Partially update details or status |
+| `DELETE` | `/api/v1/events/:id` | Organizer (owner) | Soft-delete an event |
 
-API health check endpoint: `http://localhost:5000/api/v1/health`.
+The public list accepts `title`, `dateFilter`, `page`, and `limit`. Organizer
+lists accept `status`, `title`, `page`, and `limit`. Optional authentication on
+public endpoints allows attendee responses to include that attendee's
+registration status.
 
-## Running Tests
+Event statuses are `draft`, `published`, `canceled`, and `completed`. Event
+creation defaults to `draft`; status changes are made with `PATCH`. Organizers
+can edit or restore a canceled event while it has not started. Events cannot be
+modified after their start time. A soft-deleted event is unavailable.
 
-Integration tests are implemented using Jest and Supertest against the PostgreSQL database:
+### Registrations
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| `POST` | `/api/v1/events/:eventId/registrations` | Attendee | Register for an event |
+| `PATCH` | `/api/v1/registrations/:id/cancel` | Attendee (owner) | Cancel a registration |
+| `GET` | `/api/v1/users/me/registrations?status=&title=&page=&limit=` | Attendee | List the attendee's registrations |
+| `GET` | `/api/v1/events/:eventId/registrations?page=&limit=` | Organizer (event owner) | List active event attendees |
+
+Registration-list responses include either `data.registrations` or
+`data.attendees`, plus the common `data.pagination` object described above.
+Registration status filters are `active`, `canceled`, and `completed`.
+
+Registration is allowed only for a published event that has not started and
+has capacity remaining. Registering and canceling use database transactions
+and lock the event row so simultaneous requests cannot oversubscribe capacity.
+Event cancellation bulk-cancels active registrations. Attendees may cancel
+their own active registration before the event starts; the registration row is
+kept for history.
+
+## Security and Access Control
+
+- `authenticate` validates the access cookie and loads the current user;
+  `authorize` enforces organizer/attendee roles.
+- Organizer event updates and attendee lists verify ownership in the service
+  layer, not only in the frontend.
+- Request bodies and query parameters are validated with Zod.
+- Passwords use bcrypt; auth endpoints have an IP-based rate limiter.
+- Helmet and credentialed CORS are enabled. Configure `CLIENT_URL` to the exact
+  frontend origin used by the deployment.
+
+## Tests
+
+Tests use Jest and Supertest with a PostgreSQL database. They cover auth,
+authorization, event updates, registration behavior, and capacity concurrency.
+Use a **dedicated test database**: test setup clears database tables between
+cases. Set `NODE_ENV=test` and configure `DATABASE_URL` before running:
 
 ```sh
+npx prisma migrate deploy
 npm test
 ```
 
-## Authentication System & Flow
+## Source Layout
 
-The authentication system is built around secure, cookie-based token handling with refresh token rotation and reuse detection.
-
-### Endpoints (`/api/auth`)
-
-1. `POST /api/auth/signup`:
-   - Body: `{ name, email, password, role }` (`role`: `organizer` | `attendee`)
-   - Normalizes email (lowercase & trimmed), hashes password using `bcrypt` (12 rounds).
-   - Issues short-lived access token and long-lived refresh token in HTTP-only cookies.
-   - Stores SHA-256 hash of refresh token in database.
-   - Returns status `201` with sanitized user object (never returns tokens or `passwordHash` in response body).
-
-2. `POST /api/auth/signin`:
-   - Body: `{ email, password }`
-   - Verifies credentials (generic message on failure to prevent user enumeration).
-   - Issues new token pair via cookies and returns sanitized user object (status `200`).
-
-3. `POST /api/auth/refresh`:
-   - Reads `refreshToken` cookie (scoped to path `/api/auth`).
-   - Verifies cryptographic signature and checks database record by SHA-256 hash.
-   - **Reuse Detection**: If an already-revoked refresh token is presented, all refresh tokens for that user are immediately revoked, cookies are cleared, and `401 Unauthorized` is returned.
-   - **Rotation**: If valid, the presented token is marked revoked, a new access token and refresh token are created, the new hash is stored in DB, and updated cookies are set.
-
-4. `POST /api/auth/logout`:
-   - Revokes presented refresh token in database and clears both access and refresh cookies.
-   - Always returns `200 OK` even if cookies are missing or invalid.
-
-5. `GET /api/auth/me`:
-   - Protected with `authenticate` middleware.
-   - Validates `accessToken` cookie and retrieves the current authenticated user (`200 OK`).
-
-### Security Features
-
-- **Cookies**: `httpOnly: true`, `sameSite: "lax"`, `secure: true` in production. Refresh token cookie path is restricted to `/api/auth`.
-- **Token Storage**: Refresh tokens are stored only as SHA-256 hashes in PostgreSQL; raw tokens are never persisted.
-- **Rate Limiting**: `express-rate-limit` throttles auth endpoints against brute force attacks.
-- **Role-Based Access Control**: `authenticate` attaches `req.user`, and `authorize(...roles)` gates endpoints by role.
-- **Input Validation**: Strict input schemas with Zod enforce strong passwords, email formats, and role enums.
-- **Centralized Errors**: Consistent error responses `{ success: false, message, errors? }`.
-
-
-## Event Management API (`/api/events`)
-
-All endpoints under `/api/events` are protected with `authenticate` and `authorize('organizer')`.
-
-### Endpoints
-
-1. `POST /api/events`:
-   - Creates a new event.
-   - `organizerId` is automatically extracted from `req.user.id`.
-   - Returns status `201` with `{ success: true, data: { event } }`.
-2. `PUT /api/events/:id`:
-   - Full update requiring all fields: `title`, `description`, `startAt`, `timezone`, `location`, `capacity`, and `status`.
-   - Validates ownership (403 if belonging to another organizer, 404 if not found).
-   - Allows canceled events to be edited again while they have not started.
-   - Returns status `200` with `{ success: true, data: { event } }`.
-3. `PATCH /api/events/:id`:
-   - Partial update (any non-empty subset of allowed fields).
-   - Validates ownership (403 if belonging to another organizer, 404 if not found).
-   - Allows canceled events to be edited or have their status changed again before they start.
-   - Returns status `200` with `{ success: true, data: { event } }`.
-4. `DELETE /api/events/:id`:
-   - Deletes the event.
-   - Validates ownership (403 if belonging to another organizer, 404 if not found).
-   - Returns status `200` with `{ success: true, data: { message: 'Event deleted successfully' } }`.
-
-### Validation Rules
-- `title`: string, min 1, max 255
-- `description`: string, min 1
-- `startAt`: valid future date (ISO 8601)
-- `timezone`: valid IANA timezone name (validated using standard `Intl.DateTimeFormat`)
-- `location`: string, min 1, max 255
-- `capacity`: positive integer (`> 0`)
-- `status`: enum `draft | published | canceled` (defaults to `draft` on create)
-- Unknown fields (such as `id`, `organizerId`, `createdAt`) are rejected via `.strict()`.
-
-
-## Event Registrations API
-
-### Endpoints
-
-1. `POST /api/events/:eventId/registrations` (Attendee only):
-   - Registers the attendee for an event.
-   - Enforces checks: event exists, not deleted, published, `startAt > now`, active capacity available, and no duplicate active registration.
-   - Runs in a transaction with row-level locking (`SELECT ... FOR UPDATE`) to prevent race conditions.
-   - Status: `201 Created` with `{ success: true, data: { registration } }`.
-
-2. `PATCH /api/registrations/:id/cancel` (Attendee only):
-   - Cancels own active registration before event start time.
-   - Soft-cancels the row by setting `status = 'canceled'`, `canceledAt`, and `canceledBy = req.user.id`.
-   - Frees up a spot for other attendees.
-   - Status: `200 OK` with `{ success: true, data: { registration } }`.
-
-3. `GET /api/users/me/registrations` (Attendee only):
-   - Returns attendee's registrations with associated event details.
-   - Excludes soft-deleted events.
-   - Supports query params: `?status=&page=&limit=`.
-   - Status: `200 OK` with `{ success: true, data: { registrations, total, page, limit } }`.
-
-4. `GET /api/events/:eventId/registrations` (Organizer only, own events):
-   - Returns list of active attendees (`name`, `email`, `registeredAt`) for the organizer's event.
-   - Supports query params: `?page=&limit=`.
-   - Status: `200 OK` with `{ success: true, data: { attendees, total, page, limit } }`.
-
-### Soft Deletion & Event Cancellation
-- `DELETE /api/events/:id` performs a soft delete (`deletedAt = now()`, `status = 'canceled'`).
-- Canceling or soft-deleting an event bulk-cancels all active registrations in the same transaction with `canceledBy = organizer.id`.
-- Soft-deleted events are excluded from all active queries.
-- Future canceled events may be edited or restored by their organizer; soft-deleted events remain unavailable.
-- Capacity updates are rejected (`400 Bad Request`) if reduced below the current active registration count.
+```text
+prisma/       # Prisma schema and migrations
+src/
+  config/     # Environment validation
+  controllers/# HTTP request/response handling
+  errors/     # Application errors
+  lib/        # Prisma client
+  middlewares/# Authentication, validation, rate limiting, errors
+  routes/     # API route registration
+  services/   # Business logic and transactions
+  types/      # Shared backend types
+  utils/      # Cookies, hashing, and tokens
+  validators/ # Zod schemas
+tests/        # Jest/Supertest integration tests
+```
