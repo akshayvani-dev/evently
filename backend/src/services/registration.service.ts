@@ -20,8 +20,10 @@ export class RegistrationService {
     return prisma.$transaction(async (tx) => {
       // 1. Lock the event row
       const locked = await tx.$queryRaw<LockedEventRegistrationRow[]>`
-        SELECT id, title, capacity, status, "startAt", "deletedAt"
-        FROM "Event"
+        SELECT id, title, capacity, status,
+          "start_at" AS "startAt",
+          "deleted_at" AS "deletedAt"
+        FROM "events"
         WHERE id = ${eventId}
         FOR UPDATE
       `;
@@ -104,8 +106,10 @@ export class RegistrationService {
 
       // 4. Lock event row to check startAt and deletedAt
       const locked = await tx.$queryRaw<LockedEventRegistrationRow[]>`
-        SELECT id, title, capacity, status, "startAt", "deletedAt"
-        FROM "Event"
+        SELECT id, title, capacity, status,
+          "start_at" AS "startAt",
+          "deleted_at" AS "deletedAt"
+        FROM "events"
         WHERE id = ${registration.eventId}
         FOR UPDATE
       `;
@@ -137,12 +141,23 @@ export class RegistrationService {
     userId: string,
     query: ListUserRegistrationsQuery
   ) {
+    const eventWhere: Prisma.EventWhereInput = {
+      deletedAt: null,
+      ...(query.status === 'completed'
+        ? { status: 'completed' }
+        : query.status === 'active'
+          ? { status: { not: 'completed' } }
+          : {}),
+      ...(query.title
+        ? { title: { contains: query.title, mode: 'insensitive' } }
+        : {}),
+    };
     const where: Prisma.RegistrationWhereInput = {
       userId,
-      event: {
-        deletedAt: null,
-      },
-      ...(query.status ? { status: query.status } : {}),
+      event: eventWhere,
+      ...(query.status
+        ? { status: query.status === 'completed' ? 'active' : query.status }
+        : {}),
     };
 
     const skip = (query.page - 1) * query.limit;
@@ -154,6 +169,7 @@ export class RegistrationService {
           event: {
             select: {
               id: true,
+              organizerId: true,
               title: true,
               description: true,
               startAt: true,
@@ -161,6 +177,11 @@ export class RegistrationService {
               location: true,
               capacity: true,
               status: true,
+              organizer: { select: { name: true } },
+              registrations: {
+                where: { status: 'active' },
+                select: { id: true },
+              },
             },
           },
         },
@@ -172,7 +193,18 @@ export class RegistrationService {
     ]);
 
     return {
-      registrations,
+      registrations: registrations.map(({ event, ...registration }) => {
+        const { organizer, registrations: activeRegistrations, ...eventData } = event;
+        return {
+          ...registration,
+          event: {
+            ...eventData,
+            organizerName: organizer.name,
+            registered: activeRegistrations.length,
+            registrationStatus: registration.status,
+          },
+        };
+      }),
       total,
       page: query.page,
       limit: query.limit,

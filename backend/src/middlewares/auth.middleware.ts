@@ -45,6 +45,44 @@ export const authenticate = async (
   }
 };
 
+export const optionalAuthenticate = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const token = req.cookies?.[ACCESS_COOKIE_NAME];
+  if (!token) {
+    next();
+    return;
+  }
+
+  let payload;
+  try {
+    payload = verifyAccessToken(token);
+  } catch {
+    next();
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    if (user) req.user = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const authorize = (...roles: Role[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {

@@ -9,6 +9,7 @@ export const signupSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
     .trim()
+    .max(500, 'Email cannot exceed 500 characters')
     .email('Invalid email format')
     .toLowerCase(),
   password: z
@@ -23,6 +24,7 @@ export const signinSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
     .trim()
+    .max(500, 'Email cannot exceed 500 characters')
     .email('Invalid email format')
     .toLowerCase(),
   password: z

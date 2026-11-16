@@ -67,6 +67,17 @@ export interface EventDetailsResponse {
   message?: string;
 }
 
+export interface RegistrationMutationResponse {
+  success: boolean;
+  data: {
+    registration: {
+      id: string;
+      status: 'active' | 'canceled';
+    };
+  };
+  message?: string;
+}
+
 export interface PatchEventResponse {
   success: boolean;
   data: { event: Partial<Event> };
@@ -91,9 +102,34 @@ export interface EventAttendeesResponse {
   message?: string;
 }
 
+export interface UserRegistration {
+  id: string;
+  status: 'active' | 'canceled';
+  registeredAt: string;
+  event: Event;
+}
+
+export interface UserRegistrationsResponse {
+  success: boolean;
+  data: {
+    registrations: UserRegistration[];
+    total: number;
+    page: number;
+    limit: number;
+  };
+  message?: string;
+}
+
 export interface PublicEventFilters {
   title?: string;
   dateFilter?: DateFilterOption;
+  page?: number;
+  limit?: number;
+}
+
+export interface UserRegistrationFilters {
+  status: 'active' | 'canceled' | 'completed';
+  title?: string;
   page?: number;
   limit?: number;
 }
@@ -111,6 +147,7 @@ const publicEventsRequests = new Map<string, Promise<ListEventsResponse>>();
 const publicEventDetailsRequests = new Map<string, Promise<EventDetailsResponse>>();
 const organizerEventDetailsRequests = new Map<string, Promise<EventDetailsResponse>>();
 const eventAttendeesRequests = new Map<string, Promise<EventAttendeesResponse>>();
+const userRegistrationsRequests = new Map<string, Promise<UserRegistrationsResponse>>();
 
 function getEventDetails(
   requests: Map<string, Promise<EventDetailsResponse>>,
@@ -154,13 +191,27 @@ export function clearOrganizerEventsCache(): void {
   publicEventsRequests.clear();
 }
 
+function clearPublicEventListCache(): void {
+  publicEventsCache.clear();
+  publicEventsRequests.clear();
+}
+
 export const eventApi = {
-  listEvents: (filters: PublicEventFilters = {}): Promise<ListEventsResponse> => {
+  listEvents: (
+    filters: PublicEventFilters = {},
+    cacheScope = 'public',
+  ): Promise<ListEventsResponse> => {
     const title = filters.title?.trim() ?? '';
     const dateFilter = filters.dateFilter ?? 'all';
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 20;
-    const cacheKey = JSON.stringify([title.toLowerCase(), dateFilter, page, limit]);
+    const cacheKey = JSON.stringify([
+      title.toLowerCase(),
+      dateFilter,
+      page,
+      limit,
+      cacheScope,
+    ]);
     const params = {
       page,
       limit,
@@ -184,6 +235,33 @@ export const eventApi = {
         throw error;
       });
     publicEventsRequests.set(cacheKey, request);
+    return request;
+  },
+
+  listUserRegistrations: (
+    userId: string,
+    filters: UserRegistrationFilters,
+  ): Promise<UserRegistrationsResponse> => {
+    const title = filters.title?.trim() ?? '';
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    const cacheKey = JSON.stringify([userId, filters.status, title.toLowerCase(), page, limit]);
+    const pending = userRegistrationsRequests.get(cacheKey);
+    if (pending) return pending;
+
+    const request = api
+      .get<UserRegistrationsResponse>('/users/me/registrations', {
+        params: {
+          status: filters.status,
+          page,
+          limit,
+          ...(title ? { title } : {}),
+        },
+      })
+      .then(({ data }) => data)
+      .finally(() => userRegistrationsRequests.delete(cacheKey));
+
+    userRegistrationsRequests.set(cacheKey, request);
     return request;
   },
 
@@ -222,8 +300,12 @@ export const eventApi = {
     return request;
   },
 
-  getPublicEvent: (eventId: string): Promise<EventDetailsResponse> => {
-    return getEventDetails(publicEventDetailsRequests, eventId, `/events/public/${eventId}`);
+  getPublicEvent: (eventId: string, cacheScope = 'public'): Promise<EventDetailsResponse> => {
+    return getEventDetails(
+      publicEventDetailsRequests,
+      `${cacheScope}:${eventId}`,
+      `/events/public/${eventId}`,
+    );
   },
 
   getOrganizerEvent: (eventId: string, organizerId: string): Promise<EventDetailsResponse> => {
@@ -239,6 +321,24 @@ export const eventApi = {
     page = 1,
     limit = 10,
   ): Promise<EventAttendeesResponse> => getEventAttendees(eventId, page, limit),
+
+  registerForEvent: async (eventId: string): Promise<RegistrationMutationResponse> => {
+    const response = await api.post<RegistrationMutationResponse>(
+      `/events/${eventId}/registrations`,
+    );
+    clearPublicEventListCache();
+    return response.data;
+  },
+
+  cancelRegistration: async (
+    registrationId: string,
+  ): Promise<RegistrationMutationResponse> => {
+    const response = await api.patch<RegistrationMutationResponse>(
+      `/registrations/${registrationId}/cancel`,
+    );
+    clearPublicEventListCache();
+    return response.data;
+  },
 
   createEvent: async (payload: CreateEventPayload): Promise<CreateEventResponse> => {
     const response = await api.post<CreateEventResponse>('/events', payload);

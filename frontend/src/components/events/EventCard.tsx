@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   AlertCircle,
   Ban,
@@ -17,7 +17,11 @@ import { cn, formatEventDate, getEventAvailability } from "../../lib/utils";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { ProgressBar } from "../ui/ProgressBar";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { eventApi } from "../../api/eventapi";
+import { getApiErrorMessage } from "../../api/authapi";
 import { useAppSelector } from "../../store";
+import { useToast } from "../ui/toaster";
 
 interface EventCardProps {
   event: Event;
@@ -41,16 +45,37 @@ function getBadgeIcon(variant: ComputedBadgeVariant) {
 
 export function EventCard({
   event,
-  isRegistered = false,
+  isRegistered: initialIsRegistered = false,
 }: EventCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const isOrganizer = user?.role === "organizer";
+  const isAttendee = user?.role === "attendee";
   const isEventOwner = isOrganizer && user?.id === event.organizerId;
+  const { toast } = useToast();
+  const registrationInFlightRef = useRef(false);
+  const [registrationStatus, setRegistrationStatus] = useState(event.registrationStatus);
+  const [registeredCount, setRegisteredCount] = useState(event.registered);
+  const [isRegistrationConfirmOpen, setIsRegistrationConfirmOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
-  const availability = getEventAvailability(event, isRegistered);
+  useEffect(() => {
+    setRegistrationStatus(event.registrationStatus);
+    setRegisteredCount(event.registered);
+  }, [event.id, event.registered, event.registrationStatus]);
+
+  const isRegistered = isAttendee
+    ? registrationStatus === "active"
+    : initialIsRegistered;
+  const hasNoRegistration =
+    registrationStatus === null || registrationStatus === undefined;
+  const availability = getEventAvailability(
+    { ...event, registered: registeredCount },
+    isRegistered,
+  );
   const { dateLabel, timeLabel } = formatEventDate(
     event.startAt,
     event.timezone,
@@ -59,6 +84,52 @@ export function EventCard({
   const isCanceled = event.status === "canceled";
   const isFull = availability.badgeVariant === "full";
   const isActionDisabled = availability.isDisabled;
+  const hasCanceledRegistration = isAttendee && registrationStatus === "canceled";
+
+  const handleRegister = async () => {
+    if (
+      !isAttendee
+      || !hasNoRegistration
+      || isActionDisabled
+      || registrationInFlightRef.current
+    ) {
+      return;
+    }
+
+    registrationInFlightRef.current = true;
+    const previousRegistrationStatus = registrationStatus;
+    const previousRegisteredCount = registeredCount;
+    setRegistrationError(null);
+    setRegistrationStatus("active");
+    setRegisteredCount((count) => count + 1);
+    setIsRegistering(true);
+
+    try {
+      const response = await eventApi.registerForEvent(event.id);
+      if (!response.success) {
+        throw new Error(response.message || "Unable to register for this event.");
+      }
+
+      setRegistrationStatus(response.data.registration.status);
+      toast({
+        title: "Registration confirmed",
+        description: `${event.title} is now in My events.`,
+      });
+      setIsRegistrationConfirmOpen(false);
+    } catch (error: unknown) {
+      setRegistrationStatus(previousRegistrationStatus);
+      setRegisteredCount(previousRegisteredCount);
+      const message = getApiErrorMessage(
+        error,
+        "Unable to register for this event. Please try again.",
+      );
+      setRegistrationError(message);
+      setIsRegistrationConfirmOpen(false);
+    } finally {
+      setIsRegistering(false);
+      registrationInFlightRef.current = false;
+    }
+  };
 
   const placesText = isCanceled
     ? "Event canceled"
@@ -83,6 +154,7 @@ export function EventCard({
   };
 
   return (
+    <>
     <motion.article
       role="link"
       tabIndex={0}
@@ -205,10 +277,20 @@ export function EventCard({
                   : "primary"
             }
             size="md"
-            disabled={isActionDisabled}
+            disabled={
+              isActionDisabled
+              || isRegistering
+              || isRegistered
+              || Boolean(hasCanceledRegistration)
+            }
             onClick={(e) => {
               e.stopPropagation();
-              navigate('/auth');
+              if (!isAuthenticated) {
+                navigate("/auth");
+              } else if (isAttendee && hasNoRegistration) {
+                setRegistrationError(null);
+                setIsRegistrationConfirmOpen(true);
+              }
             }}
             aria-pressed={isRegistered}
             className={cn(
@@ -219,10 +301,17 @@ export function EventCard({
                 "border-[#1A1713]/15 bg-[#1A1713]/8 text-[#5C5246]",
             )}
           >
-            {isCanceled ? (
+            {isRegistering ? (
+              "Registering..."
+            ) : isCanceled ? (
               <>
                 <Ban className="h-4 w-4" aria-hidden="true" />
                 Canceled
+              </>
+            ) : hasCanceledRegistration ? (
+              <>
+                <Ban className="h-4 w-4" aria-hidden="true" />
+                Registration canceled
               </>
             ) : isFull ? (
               <>
@@ -242,7 +331,27 @@ export function EventCard({
             )}
           </Button>
         )}
+        {registrationError && (
+          <p role="alert" className="text-xs font-medium text-[#991B1B]">
+            {registrationError}
+          </p>
+        )}
       </div>
     </motion.article>
+    {isAttendee && (
+      <ConfirmationDialog
+        isOpen={isRegistrationConfirmOpen}
+        title="Register for this event?"
+        description={`${event.title} will be added to My events.`}
+        confirmLabel="Register"
+        loadingLabel="Registering..."
+        isLoading={isRegistering}
+        onConfirm={() => void handleRegister()}
+        onCancel={() => {
+          if (!isRegistering) setIsRegistrationConfirmOpen(false);
+        }}
+      />
+    )}
+    </>
   );
 }

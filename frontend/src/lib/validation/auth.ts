@@ -9,6 +9,7 @@ export const signInSchema = z.object({
     .trim()
     .toLowerCase()
     .min(1, 'Email is required')
+    .max(500, 'Email must be 500 characters or fewer')
     .email('Enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
@@ -25,6 +26,7 @@ export const signUpSchema = z.object({
     .trim()
     .toLowerCase()
     .min(1, 'Email is required')
+    .max(500, 'Email must be 500 characters or fewer')
     .email('Enter a valid email address'),
   password: z
     .string()

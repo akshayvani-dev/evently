@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { CalendarDays, CircleCheck, CircleDashed, X, XCircle } from 'lucide-react';
+import { CalendarDays, CircleCheck, CircleDashed, Ticket, X, XCircle } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAppSelector } from '../../store';
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -11,6 +12,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
+  const isOrganizer = useAppSelector((state) => state.auth.user?.role === 'organizer');
 
   useEffect(() => onClose(), [location.pathname, onClose]);
   useEffect(() => {
@@ -24,27 +26,35 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? 'font-medium text-white' : 'text-white/65 hover:bg-white/5 hover:text-white'}`;
 
-  const navContent = (
-    <>
-      <nav aria-label="Dashboard navigation" className="space-y-1">
-        <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Events</p>
-        {[
+  const links = isOrganizer
+    ? [
           { to: '/dashboard/events/all', label: 'All events', icon: CalendarDays },
           { to: '/dashboard/events/active', label: 'Active', icon: CircleCheck },
           { to: '/dashboard/events/draft', label: 'Draft', icon: CircleDashed },
           { to: '/dashboard/events/canceled', label: 'Canceled', icon: XCircle },
           { to: '/dashboard/events/completed', label: 'Completed', icon: CircleCheck },
-        ].map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={linkClass}>
-            {({ isActive }) => <>
-              {isActive && <motion.span layoutId="dashboard-nav-indicator" className="absolute inset-0 rounded-xl bg-white/10" transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 32 }} />}
-              <Icon className="relative h-4 w-4" aria-hidden="true" />
-              <span className="relative flex-1">{label}</span>
-            </>}
-          </NavLink>
-        ))}
-      </nav>
-    </>
+      ]
+    : [
+        { to: '/dashboard/attendee/events/all', label: 'All events', icon: CalendarDays },
+        { to: '/dashboard/attendee/events/my', label: 'My events', icon: Ticket },
+        { to: '/dashboard/attendee/events/canceled', label: 'Canceled', icon: XCircle },
+        { to: '/dashboard/attendee/events/completed', label: 'Completed', icon: CircleCheck },
+      ];
+  const navContent = (
+    <nav aria-label="Dashboard navigation" className="space-y-1">
+      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+        Events
+      </p>
+      {links.map(({ to, label, icon: Icon }) => (
+        <NavLink key={to} to={to} className={linkClass}>
+          {({ isActive }) => <>
+            {isActive && <motion.span layoutId="dashboard-nav-indicator" className="absolute inset-0 rounded-xl bg-white/10" transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 32 }} />}
+            <Icon className="relative h-4 w-4" aria-hidden="true" />
+            <span className="relative flex-1">{label}</span>
+          </>}
+        </NavLink>
+      ))}
+    </nav>
   );
 
   return (

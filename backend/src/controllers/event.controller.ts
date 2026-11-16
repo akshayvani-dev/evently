@@ -14,7 +14,8 @@ export class EventController {
         throw new AppError(400, 'Validation failed', query.error.flatten().fieldErrors);
       }
 
-      const result = await EventService.listEvents('published', undefined, query.data);
+      const attendeeId = req.user?.role === 'attendee' ? req.user.id : undefined;
+      const result = await EventService.listEvents('published', undefined, query.data, attendeeId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -38,7 +39,8 @@ export class EventController {
   static async getPublicById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const eventId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const event = await EventService.getEventById(eventId);
+      const attendeeId = req.user?.role === 'attendee' ? req.user.id : undefined;
+      const event = await EventService.getEventById(eventId, undefined, attendeeId);
       res.status(200).json({ success: true, data: { event } });
     } catch (error) {
       next(error);

@@ -61,12 +61,9 @@ export function getInitials(name: string): string {
 }
 
 export function getEventAvailability(event: Event, isUserRegistered = false): EventAvailability {
-  const effectiveRegistered = isUserRegistered
-    ? Math.min(event.capacity, event.registered + 1)
-    : event.registered;
-  const placesRemaining = Math.max(0, event.capacity - effectiveRegistered);
+  const placesRemaining = Math.max(0, event.capacity - event.registered);
   const percentFilled = event.capacity > 0
-    ? Math.min(100, Math.round((effectiveRegistered / event.capacity) * 100))
+    ? Math.min(100, Math.round((event.registered / event.capacity) * 100))
     : 100;
 
   if (event.status === 'canceled') {

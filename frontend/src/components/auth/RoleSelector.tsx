@@ -29,6 +29,7 @@ interface RoleSelectorProps {
   value: UserRole | undefined;
   onChange: (role: UserRole) => void;
   onBlur?: () => void;
+  onFocus?: () => void;
   error?: string;
   firstButtonRef?: (node: HTMLButtonElement | null) => void;
 }
@@ -37,6 +38,7 @@ export function RoleSelector({
   value,
   onChange,
   onBlur,
+  onFocus,
   error,
   firstButtonRef,
 }: RoleSelectorProps) {
@@ -89,6 +91,7 @@ export function RoleSelector({
               tabIndex={tabIndex}
               onClick={() => onChange(option.id)}
               onBlur={onBlur}
+              onFocus={onFocus}
               onKeyDown={(e) => handleKeyDown(e, index)}
               className={cn(
                 'flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-all duration-150 cursor-pointer',

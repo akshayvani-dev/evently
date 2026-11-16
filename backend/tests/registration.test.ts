@@ -143,6 +143,10 @@ describe('Event Registration Integration Tests', () => {
       expect(cancelRes.status).toBe(200);
       expect(cancelRes.body.data.registration.status).toBe('canceled');
       expect(cancelRes.body.data.registration.canceledAt).toBeDefined();
+      const eventAfterRegistrationCancel = await prisma.event.findUnique({
+        where: { id: event.id },
+      });
+      expect(eventAfterRegistrationCancel?.status).toBe('published');
 
       // Ben registers again -> now succeeds!
       const resB2 = await request(app)
@@ -324,6 +328,125 @@ describe('Event Registration Integration Tests', () => {
       expect(res.body.data.registrations.length).toBe(1);
       expect(res.body.data.registrations[0].status).toBe('active');
       expect(res.body.data.registrations[0].event.title).toBe(event.title);
+    });
+  });
+
+  describe('Attendee event lists', () => {
+    it('includes registration status only for authenticated attendees', async () => {
+      const event = await createEvent(tokenOrganizer);
+      await request(app)
+        .post(`/api/v1/events/${event.id}/registrations`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+
+      const attendeeResponse = await request(app)
+        .get('/api/v1/events/public')
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      const attendeeEvent = attendeeResponse.body.data.events.find(
+        (listedEvent: { id: string }) => listedEvent.id === event.id
+      );
+      expect(attendeeResponse.status).toBe(200);
+      expect(attendeeEvent.registrationStatus).toBe('active');
+
+      const guestResponse = await request(app).get('/api/v1/events/public');
+      const guestEvent = guestResponse.body.data.events.find(
+        (listedEvent: { id: string }) => listedEvent.id === event.id
+      );
+      expect(guestResponse.status).toBe(200);
+      expect(guestEvent).not.toHaveProperty('registrationStatus');
+
+      const organizerResponse = await request(app)
+        .get('/api/v1/events/public')
+        .set('Cookie', [`accessToken=${tokenOrganizer}`]);
+      const organizerEvent = organizerResponse.body.data.events.find(
+        (listedEvent: { id: string }) => listedEvent.id === event.id
+      );
+      expect(organizerResponse.status).toBe(200);
+      expect(organizerEvent).not.toHaveProperty('registrationStatus');
+    });
+
+    it('includes attendee registration details on the public event detail response', async () => {
+      const event = await createEvent(tokenOrganizer);
+      const registrationResponse = await request(app)
+        .post(`/api/v1/events/${event.id}/registrations`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      const registrationId = registrationResponse.body.data.registration.id;
+
+      const attendeeResponse = await request(app)
+        .get(`/api/v1/events/public/${event.id}`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      expect(attendeeResponse.status).toBe(200);
+      expect(attendeeResponse.body.data.event.registrationStatus).toBe('active');
+      expect(attendeeResponse.body.data.event.registrationId).toBe(registrationId);
+
+      const guestResponse = await request(app).get(`/api/v1/events/public/${event.id}`);
+      expect(guestResponse.status).toBe(200);
+      expect(guestResponse.body.data.event).not.toHaveProperty('registrationStatus');
+      expect(guestResponse.body.data.event).not.toHaveProperty('registrationId');
+
+      const organizerResponse = await request(app)
+        .get(`/api/v1/events/public/${event.id}`)
+        .set('Cookie', [`accessToken=${tokenOrganizer}`]);
+      expect(organizerResponse.status).toBe(200);
+      expect(organizerResponse.body.data.event).not.toHaveProperty('registrationStatus');
+      expect(organizerResponse.body.data.event).not.toHaveProperty('registrationId');
+    });
+
+    it('filters my, canceled, and completed lists through registrations', async () => {
+      const completedEvent = await createEvent(tokenOrganizer, {
+        title: 'Completed Workshop',
+      });
+      const canceledEvent = await createEvent(tokenOrganizer, {
+        title: 'Canceled Registration Workshop',
+      });
+
+      const completedRegistration = await request(app)
+        .post(`/api/v1/events/${completedEvent.id}/registrations`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      const canceledRegistration = await request(app)
+        .post(`/api/v1/events/${canceledEvent.id}/registrations`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+
+      await prisma.event.update({
+        where: { id: completedEvent.id },
+        data: { status: 'completed' },
+      });
+      await request(app)
+        .patch(`/api/v1/registrations/${canceledRegistration.body.data.registration.id}/cancel`)
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+
+      const completedResponse = await request(app)
+        .get('/api/v1/users/me/registrations?status=completed')
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      expect(completedResponse.status).toBe(200);
+      expect(
+        completedResponse.body.data.registrations.map(
+          (registration: { event: { id: string } }) => registration.event.id
+        )
+      ).toContain(completedEvent.id);
+      expect(
+        completedResponse.body.data.registrations[0].event.registrationStatus
+      ).toBe('active');
+
+      const myResponse = await request(app)
+        .get('/api/v1/users/me/registrations?status=active')
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      expect(myResponse.status).toBe(200);
+      expect(
+        myResponse.body.data.registrations.map(
+          (registration: { event: { id: string } }) => registration.event.id
+        )
+      ).not.toContain(completedEvent.id);
+
+      const canceledResponse = await request(app)
+        .get('/api/v1/users/me/registrations?status=canceled')
+        .set('Cookie', [`accessToken=${tokenAttendeeA}`]);
+      expect(canceledResponse.status).toBe(200);
+      expect(
+        canceledResponse.body.data.registrations.map(
+          (registration: { event: { id: string } }) => registration.event.id
+        )
+      ).toContain(canceledEvent.id);
+      expect(completedRegistration.status).toBe(201);
     });
   });
 

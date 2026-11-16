@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 export const listUserRegistrationsQuerySchema = z.object({
-  status: z.enum(['active', 'canceled']).optional(),
+  status: z.enum(['active', 'canceled', 'completed']).optional(),
+  title: z.string().trim().max(255).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });

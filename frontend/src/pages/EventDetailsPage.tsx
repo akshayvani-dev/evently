@@ -16,12 +16,14 @@ import type { ComputedBadgeVariant } from '../types/event';
 import { Container } from '../components/ui/Container';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { ConfirmationDialog } from '../components/ui/ConfirmationDialog';
 import { EventInfo } from '../components/events/EventInfo';
 import { EventAttendees } from '../components/events/EventAttendees';
 import { SlotsCard } from '../components/events/SlotsCard';
 import { eventApi } from '../api/eventapi';
 import { getApiErrorMessage } from '../api/authapi';
 import { useAppSelector } from '../store';
+import { useToast } from '../components/ui/toaster';
 
 const EVENT_STATUS_OPTIONS: { value: EventStatus; label: string }[] = [
   { value: 'draft', label: 'Save as draft' },
@@ -36,6 +38,11 @@ const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   canceled: 'Canceled',
   completed: 'Completed',
 };
+
+type EventConfirmationAction =
+  | { type: 'status'; nextStatus: EventStatus }
+  | { type: 'register' }
+  | { type: 'cancel-registration' };
 
 function getBadgeIcon(variant: ComputedBadgeVariant) {
   switch (variant) {
@@ -59,12 +66,18 @@ export function EventDetailsPage() {
   const prefersReducedMotion = useReducedMotion();
   const { user, isLoading: isAuthLoading } = useAppSelector((state) => state.auth);
   const isOrganizer = user?.role === 'organizer';
+  const isAttendee = user?.role === 'attendee';
+  const { toast } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [isSavingRegistration, setIsSavingRegistration] = useState(false);
+  const [confirmationAction, setConfirmationAction] =
+    useState<EventConfirmationAction | null>(null);
 
   const isDashboardRoute = Boolean(params.eventId);
 
@@ -91,7 +104,10 @@ export function EventDetailsPage() {
 
     const request = isOrganizer && user && isDashboardRoute
       ? eventApi.getOrganizerEvent(id, user.id)
-      : eventApi.getPublicEvent(id);
+      : eventApi.getPublicEvent(
+          id,
+          isAttendee && user ? `attendee:${user.id}` : 'public',
+        );
 
     request
       .then((response) => {
@@ -104,7 +120,7 @@ export function EventDetailsPage() {
       .finally(() => { if (isMounted) setIsLoading(false); });
 
     return () => { isMounted = false; };
-  }, [isAuthLoading, isOrganizer, isDashboardRoute, id, user?.id]);
+  }, [isAuthLoading, isOrganizer, isAttendee, isDashboardRoute, id, user?.id]);
 
   useEffect(() => {
     if (!event) return undefined;
@@ -183,6 +199,19 @@ export function EventDetailsPage() {
   const isCompleted = event.status === 'completed';
   const isFull = availability.badgeVariant === 'full';
   const isRegisterDisabled = availability.isDisabled || hasStarted;
+  const isAttendeeRegistered = Boolean(
+    isAttendee && event.registrationStatus === 'active',
+  );
+  const registrationFeedback = registrationError ?? (
+    isAttendeeRegistered && !event.registrationId
+      ? 'Your registration could not be found. Refresh the page and try again.'
+      : null
+  );
+  const isRegistrationActionDisabled = isSavingRegistration || (
+    isAttendeeRegistered
+      ? !event.registrationId || event.status !== 'published' || hasStarted
+      : isRegisterDisabled
+  );
 
   const badgeVariant: ComputedBadgeVariant = event.status;
   const badgeLabel = EVENT_STATUS_LABELS[event.status];
@@ -193,11 +222,13 @@ export function EventDetailsPage() {
       ? 'Event completed — registration closed.'
     : hasStarted
       ? 'Event started — registration closed.'
-      : isFull
+      : isFull && !isAttendeeRegistered
         ? 'Event full — no seats remaining.'
         : null;
 
-  const registerButtonContent = isCanceled ? (
+  const registerButtonContent = isSavingRegistration
+    ? isAttendeeRegistered ? 'Cancelling registration...' : 'Registering...'
+    : isCanceled ? (
     <>
       <Ban className="h-4 w-4" aria-hidden="true" />
       Canceled
@@ -212,6 +243,11 @@ export function EventDetailsPage() {
       <Ban className="h-4 w-4" aria-hidden="true" />
       Started
     </>
+  ) : isAttendeeRegistered ? (
+    <>
+      <Ban className="h-4 w-4" aria-hidden="true" />
+      Cancel registration
+    </>
   ) : isFull ? (
     <>
       <Ban className="h-4 w-4" aria-hidden="true" />
@@ -224,30 +260,151 @@ export function EventDetailsPage() {
     </>
   );
 
-  const handleStatusChange = async (nextStatus: EventStatus) => {
+  const handleStatusChange = (nextStatus: EventStatus) => {
     if (nextStatus === event.status || isSavingStatus) return;
-    const confirmed = window.confirm(
-      `Change this event's status from ${EVENT_STATUS_LABELS[event.status]} to ${EVENT_STATUS_LABELS[nextStatus]}?`,
-    );
-    if (!confirmed) return;
+    setConfirmationAction({ type: 'status', nextStatus });
+  };
 
-    setStatusError(null);
-    setIsSavingStatus(true);
-    try {
-      const response = await eventApi.patchEvent(event.id, { status: nextStatus });
-      if (!response.success) {
-        throw new Error(response.message || 'Unable to update the event status.');
+  const handleRegistrationAction = () => {
+    if (!isAttendee) {
+      navigate('/auth');
+      return;
+    }
+
+    if (isRegistrationActionDisabled) return;
+    if (isAttendeeRegistered && !event.registrationId) {
+      setRegistrationError('Your registration could not be found. Refresh the page and try again.');
+      return;
+    }
+
+    setConfirmationAction({
+      type: isAttendeeRegistered ? 'cancel-registration' : 'register',
+    });
+  };
+
+  const handleConfirmation = async () => {
+    const action = confirmationAction;
+    if (!action) return;
+
+    if (action.type === 'status') {
+      setStatusError(null);
+      setIsSavingStatus(true);
+      try {
+        const response = await eventApi.patchEvent(event.id, {
+          status: action.nextStatus,
+        });
+        if (!response.success) {
+          throw new Error(response.message || 'Unable to update the event status.');
+        }
+
+        setEvent((current) => current
+          ? { ...current, ...response.data.event }
+          : current);
+      } catch (error: unknown) {
+        setStatusError(getApiErrorMessage(error, 'Unable to update the event status.'));
+      } finally {
+        setIsSavingStatus(false);
+        setConfirmationAction(null);
       }
 
-      setEvent((current) => current
-        ? { ...current, ...response.data.event }
-        : current);
+      return;
+    }
+
+    if (!isAttendee) {
+      setConfirmationAction(null);
+      navigate('/auth');
+      return;
+    }
+
+    setRegistrationError(null);
+    setIsSavingRegistration(true);
+    try {
+      if (action.type === 'cancel-registration') {
+        const registrationId = event.registrationId;
+        if (!registrationId) {
+          throw new Error('Your registration could not be found. Refresh the page and try again.');
+        }
+
+        const response = await eventApi.cancelRegistration(registrationId);
+        if (!response.success) {
+          throw new Error(response.message || 'Unable to cancel your registration.');
+        }
+
+        setEvent((current) => current
+          ? {
+              ...current,
+              registrationId: response.data.registration.id,
+              registrationStatus: response.data.registration.status,
+              registered: Math.max(0, current.registered - 1),
+            }
+          : current);
+        toast({
+          title: 'Registration canceled',
+          description: `Your registration for ${event.title} was canceled.`,
+        });
+      } else {
+        const response = await eventApi.registerForEvent(event.id);
+        if (!response.success) {
+          throw new Error(response.message || 'Unable to register for this event.');
+        }
+
+        setEvent((current) => current
+          ? {
+              ...current,
+              registrationId: response.data.registration.id,
+              registrationStatus: response.data.registration.status,
+              registered: current.registered + 1,
+            }
+          : current);
+        toast({
+          title: 'Registration confirmed',
+          description: `${event.title} is now in My events.`,
+        });
+      }
     } catch (error: unknown) {
-      setStatusError(getApiErrorMessage(error, 'Unable to update the event status.'));
+      setRegistrationError(
+        getApiErrorMessage(error, 'Unable to update your registration. Please try again.'),
+      );
     } finally {
-      setIsSavingStatus(false);
+      setIsSavingRegistration(false);
+      setConfirmationAction(null);
     }
   };
+
+  const registrationButtonVariant = isAttendeeRegistered || isRegisterDisabled
+    ? 'outline'
+    : 'gradient';
+  const registrationButtonClassName = isAttendeeRegistered
+    ? 'w-full border-[#F0786B]/35 bg-[#F0786B]/10 text-[#F0786B] hover:bg-[#F0786B]/15'
+    : isRegisterDisabled
+      ? 'w-full border-border bg-surface-raised text-text hover:bg-surface'
+      : 'w-full';
+
+  const confirmationDetails = confirmationAction?.type === 'status'
+    ? {
+        title: 'Change event status?',
+        description: `Change this event's status from ${EVENT_STATUS_LABELS[event.status]} to ${EVENT_STATUS_LABELS[confirmationAction.nextStatus]}?`,
+        confirmLabel: 'Update status',
+        loadingLabel: 'Updating status...',
+        isDestructive: confirmationAction.nextStatus === 'canceled',
+      }
+    : confirmationAction?.type === 'cancel-registration'
+      ? {
+          title: 'Cancel registration?',
+          description: `Cancel your registration for ${event.title}?`,
+          confirmLabel: 'Cancel registration',
+          loadingLabel: 'Canceling registration...',
+          isDestructive: true,
+        }
+      : confirmationAction
+        ? {
+            title: 'Register for this event?',
+            description: `${event.title} will be added to My events.`,
+            confirmLabel: 'Register',
+            loadingLabel: 'Registering...',
+            isDestructive: false,
+          }
+        : null;
 
   const startEditing = () => navigate(`/dashboard/events/${event.id}/edit`);
 
@@ -298,7 +455,7 @@ export function EventDetailsPage() {
                     const selectedStatus = EVENT_STATUS_OPTIONS.find(
                       (option) => option.value === e.target.value,
                     );
-                    if (selectedStatus) void handleStatusChange(selectedStatus.value);
+                    if (selectedStatus) handleStatusChange(selectedStatus.value);
                   }}
                   className="h-10 min-w-36 rounded-xl border border-border bg-surface px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
                 >
@@ -317,6 +474,10 @@ export function EventDetailsPage() {
 
           {statusError && (
             <p role="alert" className="text-sm text-[#F0786B]">{statusError}</p>
+          )}
+
+          {registrationFeedback && (
+            <p role="alert" className="text-sm text-[#F0786B]">{registrationFeedback}</p>
           )}
 
           <h1 className="max-w-3xl text-2xl font-semibold leading-tight tracking-tight text-text sm:text-3xl">
@@ -362,13 +523,11 @@ export function EventDetailsPage() {
             {!isOrganizer && (
               <div className="hidden space-y-2 lg:block">
                 <Button
-                  variant={isRegisterDisabled ? 'outline' : 'gradient'}
+                  variant={registrationButtonVariant}
                   size="sm"
-                  disabled={isRegisterDisabled}
-                  className={isRegisterDisabled
-                    ? 'w-full border-border bg-surface-raised text-text hover:bg-surface'
-                    : 'w-full'}
-                  onClick={() => navigate('/auth')}
+                  disabled={isRegistrationActionDisabled}
+                  className={registrationButtonClassName}
+                  onClick={handleRegistrationAction}
                 >
                   {registerButtonContent}
                 </Button>
@@ -391,22 +550,39 @@ export function EventDetailsPage() {
       {!isOrganizer && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-4 py-2.5 backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <p className="truncate text-xs font-medium text-text-muted">
-            {disabledReason ?? 'Reserve your spot'}
+            {isAttendeeRegistered
+              ? 'You are registered for this event.'
+              : disabledReason ?? 'Reserve your spot'}
           </p>
 
           <Button
-            variant={isRegisterDisabled ? 'outline' : 'gradient'}
+            variant={registrationButtonVariant}
             size="sm"
-            disabled={isRegisterDisabled}
-            className={isRegisterDisabled
-              ? 'shrink-0 border-border bg-surface-raised text-text hover:bg-surface'
-              : 'shrink-0'}
-            onClick={() => navigate('/auth')}
+            disabled={isRegistrationActionDisabled}
+            className={isAttendeeRegistered
+              ? 'shrink-0 border-[#F0786B]/35 bg-[#F0786B]/10 text-[#F0786B] hover:bg-[#F0786B]/15'
+              : isRegisterDisabled
+                ? 'shrink-0 border-border bg-surface-raised text-text hover:bg-surface'
+                : 'shrink-0'}
+            onClick={handleRegistrationAction}
           >
             {registerButtonContent}
           </Button>
         </div>
       </div>}
+      {confirmationDetails && (
+        <ConfirmationDialog
+          isOpen={Boolean(confirmationAction)}
+          title={confirmationDetails.title}
+          description={confirmationDetails.description}
+          confirmLabel={confirmationDetails.confirmLabel}
+          loadingLabel={confirmationDetails.loadingLabel}
+          isLoading={isSavingStatus || isSavingRegistration}
+          isDestructive={confirmationDetails.isDestructive}
+          onConfirm={() => void handleConfirmation()}
+          onCancel={() => setConfirmationAction(null)}
+        />
+      )}
     </div>
   );
 }

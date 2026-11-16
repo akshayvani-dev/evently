@@ -29,10 +29,11 @@ export function SignInForm() {
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
     reValidateMode: 'onChange',
     shouldFocusError: true,
     defaultValues: {
@@ -129,10 +130,12 @@ export function SignInForm() {
         <input
           id="signin-email"
           type="email"
+          maxLength={500}
           autoComplete="email"
           placeholder="you@example.com"
           disabled={isSubmitting}
           aria-invalid={Boolean(errors.email)}
+          onFocus={() => void trigger('email')}
           {...register('email')}
           className={cn(
             'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
@@ -154,6 +157,7 @@ export function SignInForm() {
           placeholder="Enter your password"
           disabled={isSubmitting}
           hasError={Boolean(errors.password)}
+          onFocus={() => void trigger('password')}
           {...register('password')}
         />
       </FormField>

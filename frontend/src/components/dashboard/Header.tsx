@@ -1,4 +1,4 @@
-import { Menu, Plus } from 'lucide-react';
+import { CalendarDays, Menu, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { UserMenu } from './UserMenu';
@@ -28,8 +28,10 @@ export function Header({ title, onMenuClick, mobileOpen }: HeaderProps) {
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
         <Link to="/" className="inline-flex shrink-0 items-center gap-2 rounded-lg text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient text-[#0F0E0C]" aria-hidden="true">E</span>
-          <span className="hidden font-semibold sm:inline">Evently</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient text-[#0F0E0C]" aria-hidden="true">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+          <span className="font-semibold">Evently</span>
         </Link>
         <span className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden="true" />
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-white sm:text-base">{title}</h1>

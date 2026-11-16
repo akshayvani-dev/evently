@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { EventController } from '../controllers/event.controller';
 import { RegistrationController } from '../controllers/registration.controller';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate';
 import {
   createEventSchema,
@@ -12,8 +12,8 @@ import {
 const router = Router();
 
 // Public event listing defaults to upcoming/published events.
-router.get('/public', EventController.list);
-router.get('/public/:id', EventController.getPublicById);
+router.get('/public', optionalAuthenticate, EventController.list);
+router.get('/public/:id', optionalAuthenticate, EventController.getPublicById);
 router.get('/', authenticate, authorize('organizer'), EventController.listMine);
 router.get('/:id', authenticate, authorize('organizer'), EventController.getById);
 // Attendee: Register for an event

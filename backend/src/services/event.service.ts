@@ -22,6 +22,7 @@ export class EventService {
     status: 'all' | 'published' | 'draft' | 'canceled' | 'completed',
     organizerId?: string,
     filters: EventListFilters = { page: 1, limit: 20 },
+    attendeeId?: string,
   ) {
     const now = new Date();
     await prisma.$executeRaw`
@@ -62,12 +63,38 @@ export class EventService {
       prisma.event.count({ where }),
     ]);
 
+    const registrationStatuses = new Map<string, 'active' | 'canceled'>();
+    if (attendeeId && events.length > 0) {
+      const registrations = await prisma.registration.findMany({
+        where: {
+          userId: attendeeId,
+          eventId: { in: events.map((event) => event.id) },
+        },
+        select: { eventId: true, status: true },
+        orderBy: { registeredAt: 'desc' },
+      });
+
+      for (const registration of registrations) {
+        if (!registrationStatuses.has(registration.eventId)) {
+          registrationStatuses.set(registration.eventId, registration.status);
+        }
+      }
+    }
+
     return {
-      events: events.map(({ organizer, registrations, ...event }) => ({
-        ...event,
-        organizerName: organizer.name,
-        registered: registrations.length,
-      })),
+      events: events.map(({ organizer, registrations, ...event }) => {
+        const eventData = {
+          ...event,
+          organizerName: organizer.name,
+          registered: registrations.length,
+        };
+        return attendeeId
+          ? {
+              ...eventData,
+              registrationStatus: registrationStatuses.get(event.id) ?? null,
+            }
+          : eventData;
+      }),
       pagination: {
         page: filters.page,
         limit: filters.limit,
@@ -77,7 +104,7 @@ export class EventService {
       },
     };
   }
-  static async getEventById(eventId: string, organizerId?: string) {
+  static async getEventById(eventId: string, organizerId?: string, attendeeId?: string) {
     const now = new Date();
     await prisma.$executeRaw`
       UPDATE "events"
@@ -103,12 +130,27 @@ export class EventService {
       throw new AppError(404, 'Event not found');
     }
 
+    const registration = attendeeId
+      ? await prisma.registration.findFirst({
+          where: { eventId, userId: attendeeId },
+          select: { id: true, status: true },
+          orderBy: { registeredAt: 'desc' },
+        })
+      : null;
+
     const { organizer, registrations, ...eventData } = event;
-    return {
+    const result = {
       ...eventData,
       organizerName: organizer.name,
       registered: registrations.length,
     };
+    return attendeeId
+      ? {
+          ...result,
+          registrationId: registration?.id ?? null,
+          registrationStatus: registration?.status ?? null,
+        }
+      : result;
   }
   static async createEvent(
     organizerId: string,

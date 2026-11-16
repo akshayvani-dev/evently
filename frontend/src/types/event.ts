@@ -1,6 +1,7 @@
 export type DateFilterOption = 'all' | 'this-week' | 'this-month' | 'next-3-months';
 
 export type EventStatus = 'draft' | 'published' | 'canceled' | 'completed';
+export type RegistrationStatus = 'active' | 'canceled';
 
 export type ComputedBadgeVariant =
   | 'published'
@@ -23,6 +24,8 @@ export interface Event {
   registered: number;
   status: EventStatus;
   organizerName: string;
+  registrationId?: string | null;
+  registrationStatus?: RegistrationStatus | null;
 }
 
 export interface EventAvailability {

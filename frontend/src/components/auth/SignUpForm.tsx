@@ -36,10 +36,11 @@ export function SignUpForm() {
     register,
     control,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
     reValidateMode: 'onChange',
     shouldFocusError: true,
     defaultValues: {
@@ -161,10 +162,12 @@ export function SignUpForm() {
         <input
           id="signup-name"
           type="text"
+          maxLength={100}
           autoComplete="name"
           placeholder="Alex Morgan"
           disabled={isSubmitting}
           aria-invalid={Boolean(errors.name)}
+          onFocus={() => void trigger('name')}
           {...register('name')}
           className={cn(
             'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
@@ -183,10 +186,12 @@ export function SignUpForm() {
         <input
           id="signup-email"
           type="email"
+          maxLength={500}
           autoComplete="email"
           placeholder="you@example.com"
           disabled={isSubmitting}
           aria-invalid={Boolean(errors.email)}
+          onFocus={() => void trigger('email')}
           {...register('email')}
           className={cn(
             'w-full rounded-xl border bg-surface/80 px-3.5 py-2.5 text-sm text-text placeholder:text-text-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40',
@@ -208,6 +213,7 @@ export function SignUpForm() {
           placeholder="At least 8 characters"
           disabled={isSubmitting}
           hasError={Boolean(errors.password)}
+          onFocus={() => void trigger('password')}
           {...register('password')}
         />
       </FormField>
@@ -224,6 +230,8 @@ export function SignUpForm() {
             <RoleSelector
               value={field.value}
               onChange={field.onChange}
+              onBlur={field.onBlur}
+              onFocus={() => void trigger('role')}
               firstButtonRef={(node) => {
                 roleFirstButtonRef.current = node;
               }}
