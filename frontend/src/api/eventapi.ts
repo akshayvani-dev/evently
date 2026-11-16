@@ -48,12 +48,12 @@ export interface ListEventsResponse {
   success: boolean;
   data: {
     events: Event[];
-    pagination: EventListPagination;
+    pagination: Pagination;
   };
   message?: string;
 }
 
-export interface EventListPagination {
+export interface Pagination {
   page: number;
   limit: number;
   total: number;
@@ -95,9 +95,7 @@ export interface EventAttendeesResponse {
   success: boolean;
   data: {
     attendees: EventAttendee[];
-    total: number;
-    page: number;
-    limit: number;
+    pagination: Pagination;
   };
   message?: string;
 }
@@ -113,9 +111,7 @@ export interface UserRegistrationsResponse {
   success: boolean;
   data: {
     registrations: UserRegistration[];
-    total: number;
-    page: number;
-    limit: number;
+    pagination: Pagination;
   };
   message?: string;
 }

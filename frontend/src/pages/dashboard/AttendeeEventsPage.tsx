@@ -115,7 +115,7 @@ export function AttendeeEventsPage({ view }: AttendeeEventsPageProps) {
                 registrationStatus: status,
               })),
             );
-            setTotal(response.data.total);
+            setTotal(response.data.pagination.total);
           }
         }
       } catch (error: unknown) {

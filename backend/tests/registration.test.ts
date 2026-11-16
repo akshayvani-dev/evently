@@ -309,6 +309,13 @@ describe('Event Registration Integration Tests', () => {
       expect(res.body.data.attendees[0].name).toBe(attendeeA.name);
       expect(res.body.data.attendees[0].email).toBe(attendeeA.email);
       expect(res.body.data.attendees[0].registeredAt).toBeDefined();
+      expect(res.body.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+        hasNextPage: false,
+      });
     });
 
     it('attendee can list own registrations with event details', async () => {
@@ -328,6 +335,13 @@ describe('Event Registration Integration Tests', () => {
       expect(res.body.data.registrations.length).toBe(1);
       expect(res.body.data.registrations[0].status).toBe('active');
       expect(res.body.data.registrations[0].event.title).toBe(event.title);
+      expect(res.body.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+        hasNextPage: false,
+      });
     });
   });
 

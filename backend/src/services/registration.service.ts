@@ -205,9 +205,13 @@ export class RegistrationService {
           },
         };
       }),
-      total,
-      page: query.page,
-      limit: query.limit,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+        hasNextPage: skip + registrations.length < total,
+      },
     };
   }
 
@@ -269,9 +273,13 @@ export class RegistrationService {
 
     return {
       attendees,
-      total,
-      page: query.page,
-      limit: query.limit,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+        hasNextPage: skip + registrations.length < total,
+      },
     };
   }
 }

@@ -36,7 +36,7 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
           throw new Error(response.message || 'Unable to load event attendees.');
         }
 
-        const lastPage = Math.max(1, Math.ceil(response.data.total / response.data.limit));
+        const lastPage = Math.max(1, response.data.pagination.totalPages);
         if (page > lastPage) {
           if (isMounted) setPage(lastPage);
           return;
@@ -56,9 +56,16 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
     return () => { isMounted = false; };
   }, [eventId, page, retryCount]);
 
-  const pageCount = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
-  const firstItem = data?.total ? (data.page - 1) * data.limit + 1 : 0;
-  const lastItem = data ? Math.min(data.page * data.limit, data.total) : 0;
+  const pageCount = data ? Math.max(1, data.pagination.totalPages) : 1;
+  const firstItem = data?.pagination.total
+    ? (data.pagination.page - 1) * data.pagination.limit + 1
+    : 0;
+  const lastItem = data
+    ? Math.min(
+        data.pagination.page * data.pagination.limit,
+        data.pagination.total,
+      )
+    : 0;
 
   return (
     <section
@@ -74,13 +81,13 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
           </h2>
           {data && (
             <span className="rounded-full bg-surface-raised px-2 py-0.5 text-xs tabular-nums text-text-muted">
-              {data.total}
+              {data.pagination.total}
             </span>
           )}
         </div>
-        {data && data.total > 0 && (
+        {data && data.pagination.total > 0 && (
           <p className="text-xs text-text-muted">
-            Showing {firstItem}–{lastItem} of {data.total}
+            Showing {firstItem}–{lastItem} of {data.pagination.total}
           </p>
         )}
       </header>
@@ -140,7 +147,7 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
             </table>
           </div>
 
-          {data.total > 0 && (
+          {data.pagination.total > 0 && (
             <nav aria-label="Attendee pages" className="flex items-center justify-between border-t border-border px-4 py-3 sm:px-5">
               <Button
                 variant="outline"
@@ -153,7 +160,7 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
                 Previous
               </Button>
               <span className="text-xs tabular-nums text-text-muted">
-                Page {data.page} of {pageCount}
+                Page {data.pagination.page} of {pageCount}
               </span>
               <Button
                 variant="outline"
